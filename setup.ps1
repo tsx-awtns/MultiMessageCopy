@@ -1,6 +1,6 @@
 # PowerShell 
 
-# MultiMessageCopy Setup Script v1.0 (Windows)
+# MultiMessageCopy Setup Script v1.1 (Windows)
 # Author: tsx-awtns
 
 param(
@@ -18,7 +18,7 @@ function Write-Step { param($Message) Write-Host "`n=== $Message ===" -Foregroun
 
 function Show-Help {
     Write-Host @"
-MultiMessageCopy Plugin Automated Setup Script v1.0
+MultiMessageCopy Plugin Automated Setup Script v1.1
 
 USAGE:
     .\setup.ps1 [OPTIONS]
@@ -54,6 +54,28 @@ function Test-Command {
     param($Command)
     try { Get-Command $Command -ErrorAction Stop | Out-Null; return $true }
     catch { return $false }
+}
+
+function Refresh-EnvironmentPath {
+    Write-Info "Refreshing environment PATH..."
+    try {
+        # Get system and user PATH variables
+        $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+        $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+        
+        # Combine them
+        $newPath = $machinePath + ";" + $userPath
+        
+        # Update current session PATH
+        $env:Path = $newPath
+        
+        Write-Info "Environment PATH refreshed successfully"
+        return $true
+    }
+    catch {
+        Write-Warning "Failed to refresh PATH: $($_.Exception.Message)"
+        return $false
+    }
 }
 
 function Test-ValidPath {
@@ -137,32 +159,67 @@ function Install-NodeJS {
     
     if (Test-Command "node") {
         Write-Success "Node.js is already installed: $(node --version)"
-        return
+        return $true
     }
     
     $nodeUrl = "https://nodejs.org/dist/v20.10.0/node-v20.10.0-x64.msi"
     $nodeInstaller = "$env:TEMP\nodejs-installer.msi"
     
     try {
-        Write-Info "Downloading and installing Node.js..."
+        Write-Info "Downloading Node.js installer..."
         Invoke-WebRequest -Uri $nodeUrl -OutFile $nodeInstaller -UseBasicParsing
-        Start-Process -FilePath "msiexec.exe" -ArgumentList "/i", $nodeInstaller, "/quiet", "/norestart" -Wait
         
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+        Write-Info "Installing Node.js (this may take a few minutes)..."
+        $installProcess = Start-Process -FilePath "msiexec.exe" -ArgumentList "/i", $nodeInstaller, "/quiet", "/norestart" -Wait -PassThru
         
+        if ($installProcess.ExitCode -ne 0) {
+            throw "Node.js installation failed with exit code: $($installProcess.ExitCode)"
+        }
+        
+        # Refresh PATH after installation
+        Refresh-EnvironmentPath
+        
+        # Wait a moment for the installation to complete
+        Start-Sleep -Seconds 3
+        
+        # Test if node is now available
         if (Test-Command "node") {
-            Write-Success "Node.js installed successfully!"
+            Write-Success "Node.js installed successfully: $(node --version)"
+            return $true
         } else {
-            Write-Warning "Node.js installed, but 'node' command not found. Restart terminal may be required."
+            Write-Warning "Node.js installed but command not found. Trying manual PATH refresh..."
+            
+            # Try adding common Node.js paths manually
+            $commonNodePaths = @(
+                "${env:ProgramFiles}\nodejs",
+                "${env:ProgramFiles(x86)}\nodejs",
+                "$env:APPDATA\npm"
+            )
+            
+            foreach ($nodePath in $commonNodePaths) {
+                if (Test-Path $nodePath) {
+                    $env:Path += ";$nodePath"
+                    Write-Info "Added to PATH: $nodePath"
+                }
+            }
+            
+            if (Test-Command "node") {
+                Write-Success "Node.js is now available: $(node --version)"
+                return $true
+            } else {
+                Write-Error "Node.js installation completed but command still not available."
+                Write-Info "Please restart PowerShell and run the script again, or install Node.js manually from https://nodejs.org/"
+                return $false
+            }
         }
         
         Remove-Item $nodeInstaller -Force -ErrorAction SilentlyContinue
     }
     catch {
         Write-Error "Failed to install Node.js: $($_.Exception.Message)"
-        Write-Info "Install manually from https://nodejs.org/"
-        Read-Host "Press Enter to exit"
-        exit 1
+        Write-Info "Please install Node.js manually from https://nodejs.org/"
+        Remove-Item $nodeInstaller -Force -ErrorAction SilentlyContinue
+        return $false
     }
 }
 
@@ -171,7 +228,7 @@ function Install-Git {
     
     if (Test-Command "git") {
         Write-Success "Git is already installed: $(git --version)"
-        return
+        return $true
     }
     
     $gitUrl = "https://github.com/git-for-windows/git/releases/download/v2.42.0.windows.2/Git-2.42.0.2-64-bit.exe"
@@ -182,12 +239,14 @@ function Install-Git {
         Invoke-WebRequest -Uri $gitUrl -OutFile $gitInstaller -UseBasicParsing
         Start-Process -FilePath $gitInstaller -ArgumentList "/VERYSILENT", "/NORESTART" -Wait
         
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+        Refresh-EnvironmentPath
         
         if (Test-Command "git") {
             Write-Success "Git installed successfully!"
+            return $true
         } else {
             Write-Warning "Git installed, but 'git' command not found. Restart terminal may be required."
+            return $false
         }
         
         Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
@@ -195,8 +254,7 @@ function Install-Git {
     catch {
         Write-Error "Failed to install Git: $($_.Exception.Message)"
         Write-Info "Install manually from https://git-scm.com/"
-        Read-Host "Press Enter to exit"
-        exit 1
+        return $false
     }
 }
 
@@ -205,18 +263,46 @@ function Install-Pnpm {
     
     if (Test-Command "pnpm") {
         Write-Success "pnpm is already installed: $(pnpm --version)"
-        return
+        return $true
+    }
+    
+    if (!(Test-Command "npm")) {
+        Write-Error "npm is not available. Node.js installation may have failed."
+        Write-Info "Please restart PowerShell and try again, or install Node.js manually."
+        return $false
     }
     
     try {
         Write-Info "Installing pnpm globally..."
-        npm install -g pnpm
-        Write-Success "pnpm installed successfully!"
+        $pnpmProcess = Start-Process -FilePath "npm" -ArgumentList "install", "-g", "pnpm" -Wait -PassThru -NoNewWindow
+        
+        if ($pnpmProcess.ExitCode -eq 0) {
+            Refresh-EnvironmentPath
+            
+            if (Test-Command "pnpm") {
+                Write-Success "pnpm installed successfully: $(pnpm --version)"
+                return $true
+            } else {
+                Write-Warning "pnpm installed but command not found. Adding npm global path..."
+                $npmGlobalPath = npm config get prefix 2>$null
+                if ($npmGlobalPath) {
+                    $env:Path += ";$npmGlobalPath"
+                    if (Test-Command "pnpm") {
+                        Write-Success "pnpm is now available: $(pnpm --version)"
+                        return $true
+                    }
+                }
+                Write-Error "pnpm installation completed but command not available."
+                return $false
+            }
+        } else {
+            throw "pnpm installation failed with exit code: $($pnpmProcess.ExitCode)"
+        }
     }
     catch {
         Write-Error "Failed to install pnpm: $($_.Exception.Message)"
-        Read-Host "Press Enter to exit"
-        exit 1
+        Write-Info "You can install pnpm manually with: npm install -g pnpm"
+        return $false
     }
 }
 
@@ -300,8 +386,7 @@ function Install-Vencord {
     }
     catch {
         Write-Error "Failed to setup Vencord: $($_.Exception.Message)"
-        Read-Host "Press Enter to exit"
-        exit 1
+        return $null
     }
 }
 
@@ -317,18 +402,18 @@ function Install-VencordDependencies {
         pnpm install
         Set-Location $currentLocation
         Write-Success "Vencord dependencies installed successfully!"
+        return $true
     }
     catch {
         Write-Error "Failed to install Vencord dependencies: $($_.Exception.Message)"
-        Read-Host "Press Enter to exit"
-        exit 1
+        return $false
     }
 }
 
 function Install-MultiMessageCopy {
     param($VencordPath)
     
-    Write-Step "Installing MultiMessageCopy Plugin v1.0"
+    Write-Step "Installing MultiMessageCopy Plugin v1.1"
     
     try {
         $userPluginsPath = Join-Path $VencordPath "src\userplugins"
@@ -336,7 +421,7 @@ function Install-MultiMessageCopy {
         
         if (Test-Path "$multiMessageCopyPath\index.tsx") {
             Write-Success "MultiMessageCopy plugin already exists!"
-            return
+            return $true
         }
         
         if (!(Test-Path $userPluginsPath)) {
@@ -365,7 +450,8 @@ function Install-MultiMessageCopy {
         Set-Location $currentLocation
         
         if (Test-Path "$multiMessageCopyPath\index.tsx") {
-            Write-Success "MultiMessageCopy plugin v1.0 cloned successfully!"
+            Write-Success "MultiMessageCopy plugin v1.1 cloned successfully!"
+            return $true
         } else {
             throw "MultiMessageCopy plugin files not found after cloning"
         }
@@ -373,15 +459,14 @@ function Install-MultiMessageCopy {
     catch {
         Write-Error "Failed to clone MultiMessageCopy plugin: $($_.Exception.Message)"
         Write-Info "Manual clone: https://github.com/tsx-awtns/MultiMessageCopy.git (files are in MultiMessageCopyFiles/ subfolder)"
-        Read-Host "Press Enter to exit"
-        exit 1
+        return $false
     }
 }
 
 function Build-Vencord {
     param($VencordPath)
     
-    Write-Step "Building Vencord with MultiMessageCopy v1.0"
+    Write-Step "Building Vencord with MultiMessageCopy v1.1"
     
     try {
         $currentLocation = Get-Location
@@ -390,11 +475,11 @@ function Build-Vencord {
         pnpm build
         Set-Location $currentLocation
         Write-Success "Vencord built successfully!"
+        return $true
     }
     catch {
         Write-Error "Failed to build Vencord: $($_.Exception.Message)"
-        Read-Host "Press Enter to exit"
-        exit 1
+        return $false
     }
 }
 
@@ -411,10 +496,12 @@ function Inject-Vencord {
         pnpm inject
         Set-Location $currentLocation
         Write-Success "Vencord injection completed!"
+        return $true
     }
     catch {
         Write-Error "Failed to inject Vencord: $($_.Exception.Message)"
         Write-Info "Run 'pnpm inject' manually in the Vencord directory later."
+        return $false
     }
 }
 
@@ -422,10 +509,12 @@ function Main {
     Write-Host @"
 ╔══════════════════════════════════════════════════════════════╗
 ║                MultiMessageCopy Setup Script                ║
-║                        Version 1.0                          ║
+║                        Version 1.1                          ║
 ║                     by tsx-awtns                             ║
 ╚══════════════════════════════════════════════════════════════╝
 "@ -ForegroundColor Cyan
+
+    $setupFailed = $false
 
     try {
         if (!(Test-Administrator)) {
@@ -438,20 +527,64 @@ function Main {
             }
         }
 
-        if (!$SkipNodeInstall) { Install-NodeJS }
-        if (!$SkipGitInstall) { Install-Git }
-        Install-Pnpm
+        # Install Node.js
+        if (!$SkipNodeInstall) { 
+            if (!(Install-NodeJS)) {
+                Write-Error "Node.js installation failed. Cannot continue."
+                Read-Host "Press Enter to exit"
+                exit 1
+            }
+        }
         
+        # Install Git
+        if (!$SkipGitInstall) { 
+            if (!(Install-Git)) {
+                Write-Warning "Git installation failed, but continuing..."
+            }
+        }
+        
+        # Install pnpm
+        if (!(Install-Pnpm)) {
+            Write-Error "pnpm installation failed. Cannot continue."
+            Read-Host "Press Enter to exit"
+            exit 1
+        }
+        
+        # Get Vencord path
         if ([string]::IsNullOrEmpty($VencordPath)) {
             $VencordPath = Get-VencordPath
         }
         
+        # Install Vencord
         $vencordDir = Install-Vencord -InstallPath $VencordPath
-        Install-VencordDependencies -VencordPath $vencordDir
-        Install-MultiMessageCopy -VencordPath $vencordDir
-        Build-Vencord -VencordPath $vencordDir
+        if (!$vencordDir) {
+            Write-Error "Vencord setup failed. Cannot continue."
+            Read-Host "Press Enter to exit"
+            exit 1
+        }
         
-        Write-Info "`nVencord and MultiMessageCopy v1.0 are ready!"
+        # Install Vencord dependencies
+        if (!(Install-VencordDependencies -VencordPath $vencordDir)) {
+            Write-Error "Vencord dependencies installation failed. Cannot continue."
+            Read-Host "Press Enter to exit"
+            exit 1
+        }
+        
+        # Install MultiMessageCopy plugin
+        if (!(Install-MultiMessageCopy -VencordPath $vencordDir)) {
+            Write-Error "MultiMessageCopy plugin installation failed. Cannot continue."
+            Read-Host "Press Enter to exit"
+            exit 1
+        }
+        
+        # Build Vencord
+        if (!(Build-Vencord -VencordPath $vencordDir)) {
+            Write-Error "Vencord build failed. Cannot continue."
+            Read-Host "Press Enter to exit"
+            exit 1
+        }
+        
+        Write-Info "`nVencord and MultiMessageCopy v1.1 are ready!"
         $inject = Read-Host "Inject Vencord into Discord now? (Y/n)"
         if ($inject -ne "n" -and $inject -ne "N") {
             Inject-Vencord -VencordPath $vencordDir
@@ -459,7 +592,7 @@ function Main {
         
         Write-Step "Setup Complete!"
         Write-Success @"
-✅ MultiMessageCopy v1.0 plugin installed successfully!
+✅ MultiMessageCopy v1.1 plugin installed successfully!
 
 NEXT STEPS:
 1. Restart Discord
