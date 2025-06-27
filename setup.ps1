@@ -1,8 +1,8 @@
 # PowerShell 
 
-# MultiMessageCopy Setup Script v1.2 (Windows)
+# MultiMessageCopy Setup Script v1.3 (Windows)
 # Author: tsx-awtns
-# Fixed PATH and installation issues
+# Enhanced UI/UX Version
 
 param(
     [switch]$SkipNodeInstall,
@@ -11,17 +11,72 @@ param(
     [switch]$Help
 )
 
-function Write-Success { param($Message) Write-Host $Message -ForegroundColor Green }
-function Write-Warning { param($Message) Write-Host $Message -ForegroundColor Yellow }
-function Write-Error { param($Message) Write-Host $Message -ForegroundColor Red }
-function Write-Info { param($Message) Write-Host $Message -ForegroundColor Cyan }
-function Write-Step { param($Message) Write-Host "`n=== $Message ===" -ForegroundColor Magenta }
+# Enhanced UI Functions
+function Write-Success { 
+    param($Message) 
+    Write-Host "✅ $Message" -ForegroundColor Green 
+}
+
+function Write-Warning { 
+    param($Message) 
+    Write-Host "⚠️  $Message" -ForegroundColor Yellow 
+}
+
+function Write-Error { 
+    param($Message) 
+    Write-Host "❌ $Message" -ForegroundColor Red 
+}
+
+function Write-Info { 
+    param($Message) 
+    Write-Host "ℹ️  $Message" -ForegroundColor Cyan 
+}
+
+function Write-Step { 
+    param($Message) 
+    Write-Host "`n" -NoNewline
+    Write-Host "🔄 $Message" -ForegroundColor Magenta -BackgroundColor Black
+    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkGray
+}
+
+function Write-Progress {
+    param($Activity, $Status, $PercentComplete)
+    Write-Progress -Activity "🚀 $Activity" -Status $Status -PercentComplete $PercentComplete
+}
+
+function Write-Banner {
+    Clear-Host
+    Write-Host @"
+
+    ███╗   ███╗██╗   ██╗██╗  ████████╗██╗    ███╗   ███╗███████╗███████╗███████╗ █████╗  ██████╗ ███████╗
+    ████╗ ████║██║   ██║██║  ╚══██╔══╝██║    ████╗ ████║██╔════╝██╔════╝██╔════╝██╔══██╗██╔════╝ ██╔════╝
+    ██╔████╔██║██║   ██║██║     ██║   ██║    ██╔████╔██║█████╗  ███████╗███████╗███████║██║  ███╗█████╗  
+    ██║╚██╔╝██║██║   ██║██║     ██║   ██║    ██║╚██╔╝██║██╔══╝  ╚════██║╚════██║██╔══██║██║   ██║██╔══╝  
+    ██║ ╚═╝ ██║╚██████╔╝███████╗██║   ██║    ██║ ╚═╝ ██║███████╗███████║███████║██║  ██║╚██████╔╝███████╗
+    ╚═╝     ╚═╝ ╚═════╝ ╚══════╝╚═╝   ╚═╝    ╚═╝     ╚═╝╚══════╝╚══════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝
+                                                                                                           
+                                    ██████╗ ██████╗ ██████╗ ██╗   ██╗                                    
+                                   ██╔════╝██╔═══██╗██╔══██╗╚██╗ ██╔╝                                    
+                                   ██║     ██║   ██║██████╔╝ ╚████╔╝                                     
+                                   ██║     ██║   ██║██╔═══╝   ╚██╔╝                                      
+                                   ╚██████╗╚██████╔╝██║        ██║                                       
+                                    ╚═════╝ ╚═════╝ ╚═╝        ╚═╝                                       
+
+"@ -ForegroundColor Cyan
+
+    Write-Host "    ╔══════════════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor DarkCyan
+    Write-Host "    ║                          MultiMessageCopy Setup Script v1.3                         ║" -ForegroundColor White
+    Write-Host "    ║                                   by tsx-awtns                                       ║" -ForegroundColor Gray
+    Write-Host "    ╚══════════════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor DarkCyan
+    Write-Host ""
+}
 
 function Show-Help {
+    Write-Banner
     Write-Host @"
-MultiMessageCopy Plugin Automated Setup Script v1.2
+📖 USAGE GUIDE
 
-USAGE:
+COMMAND:
     .\setup.ps1 [OPTIONS]
 
 OPTIONS:
@@ -31,11 +86,105 @@ OPTIONS:
     -Help               Show this help message
 
 EXAMPLES:
-    .\setup.ps1
-    .\setup.ps1 -SkipNodeInstall -SkipGitInstall
-    .\setup.ps1 -VencordPath "C:\MyVencord"
+    .\setup.ps1                                    # Full automatic setup
+    .\setup.ps1 -SkipNodeInstall -SkipGitInstall   # Skip dependency installs
+    .\setup.ps1 -VencordPath "C:\MyVencord"        # Custom Vencord path
 
 "@ -ForegroundColor White
+}
+
+function Get-UserChoice {
+    param(
+        [string]$Prompt,
+        [string]$DefaultChoice = "Y",
+        [string[]]$ValidChoices = @("Y", "N")
+    )
+    
+    do {
+        Write-Host ""
+        Write-Host "💭 $Prompt" -ForegroundColor Yellow
+        Write-Host "   Valid options: " -NoNewline -ForegroundColor Gray
+        
+        for ($i = 0; $i -lt $ValidChoices.Length; $i++) {
+            if ($ValidChoices[$i] -eq $DefaultChoice) {
+                Write-Host "[$($ValidChoices[$i])]" -NoNewline -ForegroundColor Green
+            } else {
+                Write-Host " $($ValidChoices[$i]) " -NoNewline -ForegroundColor White
+            }
+            if ($i -lt $ValidChoices.Length - 1) {
+                Write-Host "/" -NoNewline -ForegroundColor Gray
+            }
+        }
+        
+        Write-Host ""
+        Write-Host "👉 Your choice" -NoNewline -ForegroundColor Cyan
+        Write-Host " (press Enter for default): " -NoNewline -ForegroundColor Gray
+        
+        $choice = Read-Host
+        
+        if ([string]::IsNullOrWhiteSpace($choice)) {
+            $choice = $DefaultChoice
+        }
+        
+        $choice = $choice.ToUpper()
+        
+        if ($ValidChoices -contains $choice) {
+            return $choice
+        } else {
+            Write-Warning "Invalid choice. Please select from the available options."
+        }
+    } while ($true)
+}
+
+function Get-UserPath {
+    param(
+        [string]$Prompt,
+        [string]$DefaultPath,
+        [string]$Example = ""
+    )
+    
+    Write-Host ""
+    Write-Host "📁 $Prompt" -ForegroundColor Yellow
+    Write-Host "   Default location: " -NoNewline -ForegroundColor Gray
+    Write-Host "$DefaultPath" -ForegroundColor Green
+    
+    if ($Example) {
+        Write-Host "   Example: " -NoNewline -ForegroundColor Gray
+        Write-Host "$Example" -ForegroundColor White
+    }
+    
+    Write-Host "👉 Enter custom path or press Enter for default: " -NoNewline -ForegroundColor Cyan
+    
+    $userInput = Read-Host
+    
+    if ([string]::IsNullOrWhiteSpace($userInput)) {
+        Write-Info "Using default path: $DefaultPath"
+        return $DefaultPath
+    }
+    
+    $userInput = $userInput.Trim('"').Trim("'").Trim()
+    Write-Info "Using custom path: $userInput"
+    return $userInput
+}
+
+function Show-InstallationSummary {
+    param(
+        [bool]$NodeInstalled,
+        [bool]$GitInstalled,
+        [bool]$PnpmInstalled,
+        [string]$VencordPath
+    )
+    
+    Write-Host ""
+    Write-Host "📋 INSTALLATION SUMMARY" -ForegroundColor Magenta -BackgroundColor Black
+    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkGray
+    
+    if ($NodeInstalled) { Write-Success "Node.js - Ready" } else { Write-Error "Node.js - Failed" }
+    if ($GitInstalled) { Write-Success "Git - Ready" } else { Write-Warning "Git - Skipped or Failed" }
+    if ($PnpmInstalled) { Write-Success "pnpm - Ready" } else { Write-Error "pnpm - Failed" }
+    Write-Info "Vencord Path: $VencordPath"
+    
+    Write-Host ""
 }
 
 if ($Help) { Show-Help; exit 0 }
@@ -63,20 +212,17 @@ function Test-Command {
 }
 
 function Update-SessionPath {
-    Write-Info "Updating PowerShell session PATH..."
+    Write-Progress -Activity "System Setup" -Status "Refreshing environment variables..." -PercentComplete 50
+    
     try {
-        # Get the latest PATH from registry
         $machinePath = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey("SYSTEM\CurrentControlSet\Control\Session Manager\Environment").GetValue("PATH", "", [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
         $userPath = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("Environment").GetValue("PATH", "", [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
         
-        # Expand environment variables
         $machinePath = [System.Environment]::ExpandEnvironmentVariables($machinePath)
         $userPath = [System.Environment]::ExpandEnvironmentVariables($userPath)
         
-        # Update current session
         $env:PATH = $machinePath + ";" + $userPath
         
-        # Also try common Node.js paths
         $commonPaths = @(
             "${env:ProgramFiles}\nodejs",
             "${env:ProgramFiles(x86)}\nodejs",
@@ -86,192 +232,210 @@ function Update-SessionPath {
         foreach ($path in $commonPaths) {
             if ((Test-Path $path) -and ($env:PATH -notlike "*$path*")) {
                 $env:PATH += ";$path"
-                Write-Info "Added to PATH: $path"
             }
         }
         
-        Write-Success "PATH updated successfully"
+        Write-Progress -Activity "System Setup" -Status "Environment updated successfully" -PercentComplete 100
+        Start-Sleep -Milliseconds 500
+        Write-Progress -Activity "System Setup" -Completed
         return $true
     }
     catch {
-        Write-Warning "Failed to update PATH: $($_.Exception.Message)"
+        Write-Progress -Activity "System Setup" -Completed
         return $false
     }
 }
 
 function Install-NodeJS {
-    Write-Step "Installing Node.js"
+    Write-Step "Node.js Installation"
     
-    # First check if node is available after PATH update
     Update-SessionPath
     
     if (Test-Command "node") {
-        Write-Success "Node.js is already installed: $(node --version)"
+        $version = node --version
+        Write-Success "Node.js is already installed: $version"
         return $true
     }
     
-    Write-Info "Node.js not found. Installing..."
+    Write-Info "Node.js not detected. Starting installation..."
     
-    # Use Chocolatey if available, otherwise MSI
     if (Test-Command "choco") {
-        Write-Info "Installing Node.js via Chocolatey..."
+        Write-Info "Using Chocolatey package manager for installation"
+        Write-Progress -Activity "Installing Node.js" -Status "Installing via Chocolatey..." -PercentComplete 25
+        
         try {
             Start-Process -FilePath "choco" -ArgumentList "install", "nodejs", "-y" -Wait -NoNewWindow
             Update-SessionPath
             
             if (Test-Command "node") {
-                Write-Success "Node.js installed successfully via Chocolatey: $(node --version)"
+                $version = node --version
+                Write-Success "Node.js installed successfully via Chocolatey: $version"
+                Write-Progress -Activity "Installing Node.js" -Completed
                 return $true
             }
         }
         catch {
-            Write-Warning "Chocolatey installation failed, trying MSI..."
+            Write-Warning "Chocolatey installation failed. Trying direct download..."
         }
     }
     
-    # Fallback to MSI installation
+    Write-Info "Downloading Node.js installer from official website"
     $nodeUrl = "https://nodejs.org/dist/v20.10.0/node-v20.10.0-x64.msi"
     $nodeInstaller = "$env:TEMP\nodejs-installer.msi"
     
     try {
-        Write-Info "Downloading Node.js installer..."
+        Write-Progress -Activity "Installing Node.js" -Status "Downloading installer..." -PercentComplete 30
         Invoke-WebRequest -Uri $nodeUrl -OutFile $nodeInstaller -UseBasicParsing
         
-        Write-Info "Installing Node.js (this may take a few minutes)..."
+        Write-Progress -Activity "Installing Node.js" -Status "Running installer (this may take a few minutes)..." -PercentComplete 60
         $process = Start-Process -FilePath "msiexec.exe" -ArgumentList "/i", "`"$nodeInstaller`"", "/quiet", "/norestart" -Wait -PassThru
         
         if ($process.ExitCode -ne 0) {
-            throw "MSI installation failed with exit code: $($process.ExitCode)"
+            throw "Installation failed with exit code: $($process.ExitCode)"
         }
         
-        # Wait for installation to complete
-        Start-Sleep -Seconds 5
-        
-        # Update PATH multiple times to ensure it's refreshed
-        Update-SessionPath
-        Start-Sleep -Seconds 2
+        Write-Progress -Activity "Installing Node.js" -Status "Finalizing installation..." -PercentComplete 90
+        Start-Sleep -Seconds 3
         Update-SessionPath
         
-        # Test if node is now available
         if (Test-Command "node") {
-            Write-Success "Node.js installed successfully: $(node --version)"
+            $version = node --version
+            Write-Success "Node.js installed successfully: $version"
             Remove-Item $nodeInstaller -Force -ErrorAction SilentlyContinue
+            Write-Progress -Activity "Installing Node.js" -Completed
             return $true
         } else {
-            Write-Error "Node.js installation completed but command not found."
-            Write-Info "Please restart PowerShell and run the script again."
-            Write-Info "Or install Node.js manually from https://nodejs.org/"
+            Write-Error "Installation completed but Node.js command not found"
+            Write-Info "Please restart PowerShell and run the script again"
             Remove-Item $nodeInstaller -Force -ErrorAction SilentlyContinue
+            Write-Progress -Activity "Installing Node.js" -Completed
             return $false
         }
     }
     catch {
-        Write-Error "Failed to install Node.js: $($_.Exception.Message)"
+        Write-Error "Installation failed: $($_.Exception.Message)"
         Write-Info "Please install Node.js manually from https://nodejs.org/"
         Remove-Item $nodeInstaller -Force -ErrorAction SilentlyContinue
+        Write-Progress -Activity "Installing Node.js" -Completed
         return $false
     }
 }
 
 function Install-Git {
-    Write-Step "Installing Git"
+    Write-Step "Git Installation"
     
     Update-SessionPath
     
     if (Test-Command "git") {
-        Write-Success "Git is already installed: $(git --version)"
+        $version = git --version
+        Write-Success "Git is already installed: $version"
         return $true
     }
     
-    # Try Chocolatey first
+    Write-Info "Git not detected. Starting installation..."
+    
     if (Test-Command "choco") {
-        Write-Info "Installing Git via Chocolatey..."
+        Write-Info "Using Chocolatey package manager for installation"
+        Write-Progress -Activity "Installing Git" -Status "Installing via Chocolatey..." -PercentComplete 25
+        
         try {
             Start-Process -FilePath "choco" -ArgumentList "install", "git", "-y" -Wait -NoNewWindow
             Update-SessionPath
             
             if (Test-Command "git") {
                 Write-Success "Git installed successfully via Chocolatey"
+                Write-Progress -Activity "Installing Git" -Completed
                 return $true
             }
         }
         catch {
-            Write-Warning "Chocolatey installation failed, trying direct download..."
+            Write-Warning "Chocolatey installation failed. Trying direct download..."
         }
     }
     
-    # Fallback to direct download
+    Write-Info "Downloading Git installer from official website"
     $gitUrl = "https://github.com/git-for-windows/git/releases/download/v2.42.0.windows.2/Git-2.42.0.2-64-bit.exe"
     $gitInstaller = "$env:TEMP\git-installer.exe"
     
     try {
-        Write-Info "Downloading and installing Git..."
+        Write-Progress -Activity "Installing Git" -Status "Downloading installer..." -PercentComplete 30
         Invoke-WebRequest -Uri $gitUrl -OutFile $gitInstaller -UseBasicParsing
+        
+        Write-Progress -Activity "Installing Git" -Status "Running installer..." -PercentComplete 60
         Start-Process -FilePath $gitInstaller -ArgumentList "/VERYSILENT", "/NORESTART" -Wait
         
+        Write-Progress -Activity "Installing Git" -Status "Finalizing installation..." -PercentComplete 90
         Update-SessionPath
         
         if (Test-Command "git") {
-            Write-Success "Git installed successfully!"
+            Write-Success "Git installed successfully"
             Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
+            Write-Progress -Activity "Installing Git" -Completed
             return $true
         } else {
-            Write-Warning "Git installed, but command not found. May require restart."
+            Write-Warning "Git installed but command not found. May require restart"
             Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
+            Write-Progress -Activity "Installing Git" -Completed
             return $false
         }
     }
     catch {
-        Write-Error "Failed to install Git: $($_.Exception.Message)"
-        Write-Info "Install manually from https://git-scm.com/"
+        Write-Error "Installation failed: $($_.Exception.Message)"
+        Write-Info "Please install Git manually from https://git-scm.com/"
         Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
+        Write-Progress -Activity "Installing Git" -Completed
         return $false
     }
 }
 
 function Install-Pnpm {
-    Write-Step "Installing pnpm"
+    Write-Step "pnpm Package Manager Installation"
     
     Update-SessionPath
     
     if (Test-Command "pnpm") {
-        Write-Success "pnpm is already installed: $(pnpm --version)"
+        $version = pnpm --version
+        Write-Success "pnpm is already installed: $version"
         return $true
     }
     
     if (!(Test-Command "npm")) {
-        Write-Error "npm is not available. Node.js installation may have failed."
-        Write-Info "Please restart PowerShell and try again."
+        Write-Error "npm is not available. Node.js installation may have failed"
+        Write-Info "Please restart PowerShell and try again"
         return $false
     }
     
+    Write-Info "Installing pnpm package manager globally..."
+    
     try {
-        Write-Info "Installing pnpm globally..."
+        Write-Progress -Activity "Installing pnpm" -Status "Installing via npm..." -PercentComplete 50
         
-        # Use cmd to run npm to avoid PowerShell execution policy issues
         $npmProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "npm", "install", "-g", "pnpm" -Wait -PassThru -NoNewWindow
         
         if ($npmProcess.ExitCode -eq 0) {
+            Write-Progress -Activity "Installing pnpm" -Status "Finalizing installation..." -PercentComplete 90
             Update-SessionPath
             Start-Sleep -Seconds 2
             
             if (Test-Command "pnpm") {
-                Write-Success "pnpm installed successfully: $(pnpm --version)"
+                $version = pnpm --version
+                Write-Success "pnpm installed successfully: $version"
+                Write-Progress -Activity "Installing pnpm" -Completed
                 return $true
             } else {
-                Write-Warning "pnpm installed but command not found. Trying to locate..."
-                
-                # Try to find pnpm in npm global directory
                 $npmPrefix = cmd /c "npm config get prefix" 2>$null
                 if ($npmPrefix -and (Test-Path "$npmPrefix\pnpm.cmd")) {
                     $env:PATH += ";$npmPrefix"
                     if (Test-Command "pnpm") {
-                        Write-Success "pnpm is now available: $(pnpm --version)"
+                        $version = pnpm --version
+                        Write-Success "pnpm is now available: $version"
+                        Write-Progress -Activity "Installing pnpm" -Completed
                         return $true
                     }
                 }
                 
-                Write-Error "pnpm installation completed but command not available."
+                Write-Error "pnpm installation completed but command not available"
+                Write-Progress -Activity "Installing pnpm" -Completed
                 return $false
             }
         } else {
@@ -279,38 +443,19 @@ function Install-Pnpm {
         }
     }
     catch {
-        Write-Error "Failed to install pnpm: $($_.Exception.Message)"
+        Write-Error "Installation failed: $($_.Exception.Message)"
         Write-Info "You can try installing manually with: npm install -g pnpm"
+        Write-Progress -Activity "Installing pnpm" -Completed
         return $false
     }
-}
-
-function Get-VencordPath {
-    $defaultPath = Join-Path $env:USERPROFILE "Desktop\Vencord"
-    
-    Write-Info "Enter the path where Vencord should be installed:"
-    Write-Info "Default: $defaultPath"
-    Write-Info "Press ENTER for default, or type custom path:"
-    
-    $userInput = Read-Host "Path"
-    
-    if ([string]::IsNullOrWhiteSpace($userInput)) {
-        Write-Info "Using default path: $defaultPath"
-        return $defaultPath
-    }
-    
-    $userInput = $userInput.Trim('"').Trim("'").Trim()
-    Write-Info "Using custom path: $userInput"
-    return $userInput
 }
 
 function Install-Vencord {
     param($InstallPath)
     
-    Write-Step "Setting up Vencord"
+    Write-Step "Vencord Setup"
     
     try {
-        # Check if Vencord already exists
         if (Test-Path "$InstallPath\package.json") {
             $packageContent = Get-Content "$InstallPath\package.json" -Raw | ConvertFrom-Json
             if ($packageContent.name -eq "vencord") {
@@ -319,7 +464,8 @@ function Install-Vencord {
             }
         }
         
-        Write-Info "Cloning Vencord repository..."
+        Write-Info "Cloning Vencord repository from GitHub..."
+        Write-Progress -Activity "Setting up Vencord" -Status "Preparing directories..." -PercentComplete 20
         
         $parentDir = Split-Path $InstallPath -Parent
         if (!(Test-Path $parentDir)) {
@@ -331,6 +477,8 @@ function Install-Vencord {
             Remove-Item $InstallPath -Recurse -Force
         }
         
+        Write-Progress -Activity "Setting up Vencord" -Status "Cloning repository..." -PercentComplete 50
+        
         $currentLocation = Get-Location
         Set-Location $parentDir
         
@@ -339,15 +487,19 @@ function Install-Vencord {
         
         Set-Location $currentLocation
         
+        Write-Progress -Activity "Setting up Vencord" -Status "Verifying installation..." -PercentComplete 90
+        
         if (Test-Path "$InstallPath\package.json") {
             Write-Success "Vencord cloned successfully to: $InstallPath"
+            Write-Progress -Activity "Setting up Vencord" -Completed
             return $InstallPath
         } else {
             throw "Vencord clone failed - package.json not found"
         }
     }
     catch {
-        Write-Error "Failed to setup Vencord: $($_.Exception.Message)"
+        Write-Error "Setup failed: $($_.Exception.Message)"
+        Write-Progress -Activity "Setting up Vencord" -Completed
         return $null
     }
 }
@@ -355,21 +507,25 @@ function Install-Vencord {
 function Install-VencordDependencies {
     param($VencordPath)
     
-    Write-Step "Installing Vencord dependencies"
+    Write-Step "Vencord Dependencies Installation"
     
     try {
         $currentLocation = Get-Location
         Set-Location $VencordPath
         
-        Write-Info "Installing dependencies with pnpm..."
+        Write-Info "Installing project dependencies (this may take a few minutes)..."
+        Write-Progress -Activity "Installing Dependencies" -Status "Running pnpm install..." -PercentComplete 50
+        
         pnpm install
         
         Set-Location $currentLocation
-        Write-Success "Vencord dependencies installed successfully!"
+        Write-Success "Vencord dependencies installed successfully"
+        Write-Progress -Activity "Installing Dependencies" -Completed
         return $true
     }
     catch {
-        Write-Error "Failed to install Vencord dependencies: $($_.Exception.Message)"
+        Write-Error "Dependencies installation failed: $($_.Exception.Message)"
+        Write-Progress -Activity "Installing Dependencies" -Completed
         return $false
     }
 }
@@ -377,11 +533,13 @@ function Install-VencordDependencies {
 function Install-MultiMessageCopy {
     param($VencordPath)
     
-    Write-Step "Installing MultiMessageCopy Plugin"
+    Write-Step "MultiMessageCopy Plugin Installation"
     
     try {
         $userPluginsPath = Join-Path $VencordPath "src\userplugins"
         $pluginPath = Join-Path $userPluginsPath "MultiMessageCopy"
+        
+        Write-Progress -Activity "Installing Plugin" -Status "Preparing plugin directory..." -PercentComplete 20
         
         if (!(Test-Path $userPluginsPath)) {
             New-Item -ItemType Directory -Path $userPluginsPath -Force | Out-Null
@@ -393,26 +551,32 @@ function Install-MultiMessageCopy {
             Remove-Item $pluginPath -Recurse -Force
         }
         
-        Write-Info "Cloning MultiMessageCopy plugin repository..."
+        Write-Progress -Activity "Installing Plugin" -Status "Cloning plugin repository..." -PercentComplete 50
+        Write-Info "Downloading MultiMessageCopy plugin from GitHub..."
+        
         $currentLocation = Get-Location
         Set-Location $userPluginsPath
         
         git clone https://github.com/tsx-awtns/MultiMessageCopy.git temp-plugin
         
+        Write-Progress -Activity "Installing Plugin" -Status "Installing plugin files..." -PercentComplete 80
+        
         if (Test-Path "temp-plugin\MultiMessageCopyFiles") {
             Move-Item "temp-plugin\MultiMessageCopyFiles" "MultiMessageCopy"
             Remove-Item "temp-plugin" -Recurse -Force
-            Write-Success "MultiMessageCopy plugin installed successfully!"
+            Write-Success "MultiMessageCopy plugin installed successfully"
         } else {
             throw "MultiMessageCopyFiles folder not found in repository"
         }
         
         Set-Location $currentLocation
+        Write-Progress -Activity "Installing Plugin" -Completed
         return $true
     }
     catch {
-        Write-Error "Failed to install MultiMessageCopy plugin: $($_.Exception.Message)"
+        Write-Error "Plugin installation failed: $($_.Exception.Message)"
         Write-Info "You can clone manually: https://github.com/tsx-awtns/MultiMessageCopy.git"
+        Write-Progress -Activity "Installing Plugin" -Completed
         return $false
     }
 }
@@ -420,21 +584,25 @@ function Install-MultiMessageCopy {
 function Build-Vencord {
     param($VencordPath)
     
-    Write-Step "Building Vencord"
+    Write-Step "Vencord Build Process"
     
     try {
         $currentLocation = Get-Location
         Set-Location $VencordPath
         
-        Write-Info "Building Vencord with MultiMessageCopy plugin..."
+        Write-Info "Building Vencord with MultiMessageCopy plugin (this may take a few minutes)..."
+        Write-Progress -Activity "Building Vencord" -Status "Compiling project..." -PercentComplete 50
+        
         pnpm build
         
         Set-Location $currentLocation
-        Write-Success "Vencord built successfully!"
+        Write-Success "Vencord built successfully"
+        Write-Progress -Activity "Building Vencord" -Completed
         return $true
     }
     catch {
-        Write-Error "Failed to build Vencord: $($_.Exception.Message)"
+        Write-Error "Build failed: $($_.Exception.Message)"
+        Write-Progress -Activity "Building Vencord" -Completed
         return $false
     }
 }
@@ -442,134 +610,175 @@ function Build-Vencord {
 function Inject-Vencord {
     param($VencordPath)
     
-    Write-Step "Injecting Vencord into Discord"
+    Write-Step "Vencord Discord Integration"
     
     try {
         $currentLocation = Get-Location
         Set-Location $VencordPath
         
         Write-Info "Injecting Vencord into Discord..."
+        Write-Progress -Activity "Discord Integration" -Status "Injecting Vencord..." -PercentComplete 50
+        
         pnpm inject
         
         Set-Location $currentLocation
-        Write-Success "Vencord injection completed!"
+        Write-Success "Vencord injection completed successfully"
+        Write-Progress -Activity "Discord Integration" -Completed
         return $true
     }
     catch {
-        Write-Error "Failed to inject Vencord: $($_.Exception.Message)"
-        Write-Info "You can run 'pnpm inject' manually in the Vencord directory."
+        Write-Error "Injection failed: $($_.Exception.Message)"
+        Write-Info "You can run 'pnpm inject' manually in the Vencord directory"
+        Write-Progress -Activity "Discord Integration" -Completed
         return $false
     }
 }
 
-function Main {
-    Write-Host @"
-╔══════════════════════════════════════════════════════════════╗
-║                MultiMessageCopy Setup Script                ║
-║                        Version 1.2                          ║
-║                     by tsx-awtns                             ║
-╚══════════════════════════════════════════════════════════════╝
-"@ -ForegroundColor Cyan
+function Show-CompletionMessage {
+    param($VencordPath, $InjectionSkipped)
+    
+    Write-Host ""
+    Write-Host "🎉 SETUP COMPLETED SUCCESSFULLY!" -ForegroundColor Green -BackgroundColor Black
+    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkGray
+    Write-Host ""
+    
+    Write-Success "MultiMessageCopy plugin has been installed successfully"
+    Write-Info "Installation location: $VencordPath"
+    
+    Write-Host ""
+    Write-Host "📋 NEXT STEPS:" -ForegroundColor Yellow
+    Write-Host "   1. 🔄 Restart Discord completely" -ForegroundColor White
+    Write-Host "   2. ⚙️  Go to Discord Settings > Vencord > Plugins" -ForegroundColor White
+    Write-Host "   3. ✅ Enable 'MultiMessageCopy' plugin" -ForegroundColor White
+    Write-Host "   4. 🚀 Start using the plugin features in Discord" -ForegroundColor White
+    
+    if ($InjectionSkipped) {
+        Write-Host ""
+        Write-Warning "Manual injection required:"
+        Write-Host "   Run 'pnpm inject' in: $VencordPath" -ForegroundColor Gray
+    }
+    
+    Write-Host ""
+    Write-Host "🔗 USEFUL LINKS:" -ForegroundColor Cyan
+    Write-Host "   Repository: https://github.com/tsx-awtns/MultiMessageCopy" -ForegroundColor Blue
+    Write-Host "   Issues: https://github.com/tsx-awtns/MultiMessageCopy/issues" -ForegroundColor Blue
+    
+    Write-Host ""
+    Write-Host "Thank you for using MultiMessageCopy! 🙏" -ForegroundColor Green
+    Write-Host ""
+}
 
+function Main {
+    Write-Banner
+    
+    $nodeInstalled = $false
+    $gitInstalled = $false
+    $pnpmInstalled = $false
+    
     try {
+        # Administrator check
         if (!(Test-Administrator)) {
-            Write-Warning "Not running as Administrator. Some installations might fail."
-            $continue = Read-Host "Continue anyway? (y/N)"
-            if ($continue -ne "y" -and $continue -ne "Y") { 
-                Write-Info "Exiting..."
+            Write-Warning "Script is not running as Administrator"
+            Write-Info "Some installations might fail without administrator privileges"
+            
+            $continue = Get-UserChoice -Prompt "Do you want to continue anyway" -DefaultChoice "Y" -ValidChoices @("Y", "N")
+            if ($continue -eq "N") { 
+                Write-Info "Setup cancelled by user"
                 exit 0 
             }
         }
 
-        # Install Node.js
+        # Node.js Installation
         if (!$SkipNodeInstall) { 
-            if (!(Install-NodeJS)) {
-                Write-Error "Node.js installation failed. Cannot continue."
-                Write-Info "Please install Node.js manually and restart PowerShell."
+            $nodeInstalled = Install-NodeJS
+            if (!$nodeInstalled) {
+                Write-Error "Node.js installation failed. Cannot continue without Node.js"
+                Write-Info "Please install Node.js manually from https://nodejs.org/ and restart PowerShell"
                 Read-Host "Press Enter to exit"
                 exit 1
             }
+        } else {
+            $nodeInstalled = Test-Command "node"
         }
         
-        # Install Git
+        # Git Installation
         if (!$SkipGitInstall) { 
-            if (!(Install-Git)) {
-                Write-Warning "Git installation failed. You may need to install it manually."
+            $gitInstalled = Install-Git
+            if (!$gitInstalled) {
+                Write-Warning "Git installation failed or was skipped"
+                Write-Info "Git is required for cloning repositories. You may need to install it manually"
             }
+        } else {
+            $gitInstalled = Test-Command "git"
         }
         
-        # Install pnpm
-        if (!(Install-Pnpm)) {
-            Write-Error "pnpm installation failed. Cannot continue."
-            Write-Info "Please restart PowerShell and try again."
+        # pnpm Installation
+        $pnpmInstalled = Install-Pnpm
+        if (!$pnpmInstalled) {
+            Write-Error "pnpm installation failed. Cannot continue without pnpm"
+            Write-Info "Please restart PowerShell and try again"
             Read-Host "Press Enter to exit"
             exit 1
         }
         
         # Get Vencord installation path
         if ([string]::IsNullOrEmpty($VencordPath)) {
-            $VencordPath = Get-VencordPath
+            $defaultPath = Join-Path $env:USERPROFILE "Desktop\Vencord"
+            $VencordPath = Get-UserPath -Prompt "Where should Vencord be installed" -DefaultPath $defaultPath -Example "C:\MyFolder\Vencord"
         }
+        
+        # Show installation summary
+        Show-InstallationSummary -NodeInstalled $nodeInstalled -GitInstalled $gitInstalled -PnpmInstalled $pnpmInstalled -VencordPath $VencordPath
         
         # Install Vencord
         $vencordDir = Install-Vencord -InstallPath $VencordPath
         if (!$vencordDir) {
-            Write-Error "Vencord setup failed. Cannot continue."
+            Write-Error "Vencord setup failed. Cannot continue"
             Read-Host "Press Enter to exit"
             exit 1
         }
         
         # Install dependencies
         if (!(Install-VencordDependencies -VencordPath $vencordDir)) {
-            Write-Error "Failed to install Vencord dependencies."
+            Write-Error "Failed to install Vencord dependencies"
             Read-Host "Press Enter to exit"
             exit 1
         }
         
         # Install plugin
         if (!(Install-MultiMessageCopy -VencordPath $vencordDir)) {
-            Write-Error "Failed to install MultiMessageCopy plugin."
+            Write-Error "Failed to install MultiMessageCopy plugin"
             Read-Host "Press Enter to exit"
             exit 1
         }
         
         # Build Vencord
         if (!(Build-Vencord -VencordPath $vencordDir)) {
-            Write-Error "Failed to build Vencord."
+            Write-Error "Failed to build Vencord"
             Read-Host "Press Enter to exit"
             exit 1
         }
         
         # Ask about injection
-        Write-Info "`nSetup completed successfully!"
-        $inject = Read-Host "Inject Vencord into Discord now? (Y/n)"
-        if ($inject -ne "n" -and $inject -ne "N") {
-            Inject-Vencord -VencordPath $vencordDir
+        $inject = Get-UserChoice -Prompt "Do you want to inject Vencord into Discord now" -DefaultChoice "Y" -ValidChoices @("Y", "N")
+        
+        $injectionSkipped = $false
+        if ($inject -eq "Y") {
+            if (!(Inject-Vencord -VencordPath $vencordDir)) {
+                $injectionSkipped = $true
+            }
+        } else {
+            $injectionSkipped = $true
         }
         
-        Write-Step "Setup Complete!"
-        Write-Success @"
-✅ MultiMessageCopy plugin installed successfully!
-
-NEXT STEPS:
-1. Restart Discord
-2. Go to Settings > Vencord > Plugins
-3. Enable 'MultiMessageCopy'
-4. Use the plugin features in Discord
-
-INSTALLATION PATH: $vencordDir
-REPOSITORY: https://github.com/tsx-awtns/MultiMessageCopy
-"@
-
-        if ($inject -eq "n" -or $inject -eq "N") {
-            Write-Warning "`nTo inject Vencord later, run 'pnpm inject' in: $vencordDir"
-        }
+        # Show completion message
+        Show-CompletionMessage -VencordPath $vencordDir -InjectionSkipped $injectionSkipped
         
-        Read-Host "`nPress Enter to exit"
+        Read-Host "Press Enter to exit"
     }
     catch {
-        Write-Error "Setup failed: $($_.Exception.Message)"
-        Write-Info "Check the error messages above and try again."
+        Write-Error "Setup failed with error: $($_.Exception.Message)"
+        Write-Info "Please check the error messages above and try again"
         Read-Host "Press Enter to exit"
         exit 1
     }
