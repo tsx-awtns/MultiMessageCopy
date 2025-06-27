@@ -209,18 +209,14 @@ function Update-SessionPath {
     Write-Host "Refreshing environment variables..." -ForegroundColor Gray
     
     try {
-        # Get PATH from registry
         $machinePath = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey("SYSTEM\CurrentControlSet\Control\Session Manager\Environment").GetValue("PATH", "", [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
         $userPath = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("Environment").GetValue("PATH", "", [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
         
-        # Expand environment variables
         $machinePath = [System.Environment]::ExpandEnvironmentVariables($machinePath)
         $userPath = [System.Environment]::ExpandEnvironmentVariables($userPath)
         
-        # Update current session PATH
         $env:PATH = $machinePath + ";" + $userPath
         
-        # Add common Node.js paths
         $commonPaths = @(
             "${env:ProgramFiles}\nodejs",
             "${env:ProgramFiles(x86)}\nodejs",
@@ -253,7 +249,6 @@ function Install-NodeJS {
     
     Write-Info "Node.js not detected. Starting installation..."
     
-    # Try Chocolatey first
     if (Test-Command "choco") {
         Write-Info "Using Chocolatey package manager for installation"
         
@@ -272,7 +267,6 @@ function Install-NodeJS {
         }
     }
     
-    # Direct MSI installation
     Write-Info "Downloading Node.js installer from official website"
     $nodeUrl = "https://nodejs.org/dist/v20.10.0/node-v20.10.0-x64.msi"
     $nodeInstaller = "$env:TEMP\nodejs-installer.msi"
@@ -325,7 +319,6 @@ function Install-Git {
     
     Write-Info "Git not detected. Starting installation..."
     
-    # Try Chocolatey first
     if (Test-Command "choco") {
         Write-Info "Using Chocolatey package manager for installation"
         
@@ -343,7 +336,6 @@ function Install-Git {
         }
     }
     
-    # Direct installer download
     Write-Info "Downloading Git installer from official website"
     $gitUrl = "https://github.com/git-for-windows/git/releases/download/v2.42.0.windows.2/Git-2.42.0.2-64-bit.exe"
     $gitInstaller = "$env:TEMP\git-installer.exe"
@@ -410,7 +402,6 @@ function Install-Pnpm {
                 Write-Success "pnpm installed successfully: $version"
                 return $true
             } else {
-                # Try to find pnpm in npm global directory
                 $npmPrefix = cmd /c "npm config get prefix" 2>$null
                 if ($npmPrefix -and (Test-Path "$npmPrefix\pnpm.cmd")) {
                     $env:PATH += ";$npmPrefix"
@@ -441,7 +432,6 @@ function Install-Vencord {
     Write-Step "Vencord Setup"
     
     try {
-        # Check if Vencord already exists
         if (Test-Path "$InstallPath\package.json") {
             $packageContent = Get-Content "$InstallPath\package.json" -Raw | ConvertFrom-Json
             if ($packageContent.name -eq "vencord") {
@@ -630,4 +620,123 @@ function Show-CompletionMessage {
     
     if ($InjectionSkipped) {
         Write-Host ""
-        Write-
+        Write-Warning "Manual injection required:"
+        Write-Host "   Run 'pnpm inject' in: $VencordPath" -ForegroundColor Gray
+    }
+    
+    Write-Host ""
+    Write-Host "USEFUL LINKS:" -ForegroundColor Cyan
+    Write-Host "   Repository: https://github.com/tsx-awtns/MultiMessageCopy" -ForegroundColor Blue
+    Write-Host "   Issues: https://github.com/tsx-awtns/MultiMessageCopy/issues" -ForegroundColor Blue
+    
+    Write-Host ""
+    Write-Host "Thank you for using MultiMessageCopy!" -ForegroundColor Green
+    Write-Host ""
+}
+
+function Main {
+    Write-Banner
+    
+    $nodeInstalled = $false
+    $gitInstalled = $false
+    $pnpmInstalled = $false
+    
+    try {
+        if (!(Test-Administrator)) {
+            Write-Warning "Script is not running as Administrator"
+            Write-Info "Some installations might fail without administrator privileges"
+            
+            $continue = Get-UserChoice -Prompt "Do you want to continue anyway" -DefaultChoice "Y" -ValidChoices @("Y", "N")
+            if ($continue -eq "N") { 
+                Write-Info "Setup cancelled by user"
+                exit 0 
+            }
+        }
+
+        if (!$SkipNodeInstall) { 
+            $nodeInstalled = Install-NodeJS
+            if (!$nodeInstalled) {
+                Write-Error "Node.js installation failed. Cannot continue without Node.js"
+                Write-Info "Please install Node.js manually from https://nodejs.org/ and restart PowerShell"
+                Read-Host "Press Enter to exit"
+                exit 1
+            }
+        } else {
+            $nodeInstalled = Test-Command "node"
+        }
+        
+        if (!$SkipGitInstall) { 
+            $gitInstalled = Install-Git
+            if (!$gitInstalled) {
+                Write-Warning "Git installation failed or was skipped"
+                Write-Info "Git is required for cloning repositories. You may need to install it manually"
+            }
+        } else {
+            $gitInstalled = Test-Command "git"
+        }
+        
+        $pnpmInstalled = Install-Pnpm
+        if (!$pnpmInstalled) {
+            Write-Error "pnpm installation failed. Cannot continue without pnpm"
+            Write-Info "Please restart PowerShell and try again"
+            Read-Host "Press Enter to exit"
+            exit 1
+        }
+        
+        if ([string]::IsNullOrEmpty($VencordPath)) {
+            $defaultPath = Join-Path $env:USERPROFILE "Desktop\Vencord"
+            $VencordPath = Get-UserPath -Prompt "Where should Vencord be installed" -DefaultPath $defaultPath -Example "C:\MyFolder\Vencord"
+        }
+        
+        Show-InstallationSummary -NodeInstalled $nodeInstalled -GitInstalled $gitInstalled -PnpmInstalled $pnpmInstalled -VencordPath $VencordPath
+        
+        $vencordDir = Install-Vencord -InstallPath $VencordPath
+        if (!$vencordDir) {
+            Write-Error "Vencord setup failed. Cannot continue"
+            Read-Host "Press Enter to exit"
+            exit 1
+        }
+        
+        if (!(Install-VencordDependencies -VencordPath $vencordDir)) {
+            Write-Error "Failed to install Vencord dependencies"
+            Read-Host "Press Enter to exit"
+            exit 1
+        }
+        
+        if (!(Install-MultiMessageCopy -VencordPath $vencordDir)) {
+            Write-Error "Failed to install MultiMessageCopy plugin"
+            Read-Host "Press Enter to exit"
+            exit 1
+        }
+        
+        if (!(Build-Vencord -VencordPath $vencordDir)) {
+            Write-Error "Failed to build Vencord"
+            Read-Host "Press Enter to exit"
+            exit 1
+        }
+        
+        $inject = Get-UserChoice -Prompt "Do you want to inject Vencord into Discord now" -DefaultChoice "Y" -ValidChoices @("Y", "N")
+        
+        $injectionSkipped = $false
+        if ($inject -eq "Y") {
+            if (!(Inject-Vencord -VencordPath $vencordDir)) {
+                $injectionSkipped = $true
+            }
+        } else {
+            $injectionSkipped = $true
+        }
+        
+        Show-CompletionMessage -VencordPath $vencordDir -InjectionSkipped $injectionSkipped
+        
+        Read-Host "Press Enter to exit"
+    }
+    catch {
+        Write-Error "Setup failed with error: $($_.Exception.Message)"
+        Write-Info "Please check the error messages above and try again"
+        Read-Host "Press Enter to exit"
+        exit 1
+    }
+}
+
+# Run the main function
+Main
