@@ -1,7 +1,8 @@
 # PowerShell 
 
-# MultiMessageCopy Setup Script v1.1 (Windows)
+# MultiMessageCopy Setup Script v1.2 (Windows)
 # Author: tsx-awtns
+# Fixed PATH and installation issues
 
 param(
     [switch]$SkipNodeInstall,
@@ -18,7 +19,7 @@ function Write-Step { param($Message) Write-Host "`n=== $Message ===" -Foregroun
 
 function Show-Help {
     Write-Host @"
-MultiMessageCopy Plugin Automated Setup Script v1.1
+MultiMessageCopy Plugin Automated Setup Script v1.2
 
 USAGE:
     .\setup.ps1 [OPTIONS]
@@ -52,116 +53,83 @@ function Test-Administrator {
 
 function Test-Command {
     param($Command)
-    try { Get-Command $Command -ErrorAction Stop | Out-Null; return $true }
-    catch { return $false }
+    try { 
+        $null = Get-Command $Command -ErrorAction Stop
+        return $true 
+    }
+    catch { 
+        return $false 
+    }
 }
 
-function Refresh-EnvironmentPath {
-    Write-Info "Refreshing environment PATH..."
+function Update-SessionPath {
+    Write-Info "Updating PowerShell session PATH..."
     try {
-        # Get system and user PATH variables
-        $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
-        $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+        # Get the latest PATH from registry
+        $machinePath = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey("SYSTEM\CurrentControlSet\Control\Session Manager\Environment").GetValue("PATH", "", [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+        $userPath = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("Environment").GetValue("PATH", "", [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
         
-        # Combine them
-        $newPath = $machinePath + ";" + $userPath
+        # Expand environment variables
+        $machinePath = [System.Environment]::ExpandEnvironmentVariables($machinePath)
+        $userPath = [System.Environment]::ExpandEnvironmentVariables($userPath)
         
-        # Update current session PATH
-        $env:Path = $newPath
+        # Update current session
+        $env:PATH = $machinePath + ";" + $userPath
         
-        Write-Info "Environment PATH refreshed successfully"
+        # Also try common Node.js paths
+        $commonPaths = @(
+            "${env:ProgramFiles}\nodejs",
+            "${env:ProgramFiles(x86)}\nodejs",
+            "$env:APPDATA\npm"
+        )
+        
+        foreach ($path in $commonPaths) {
+            if ((Test-Path $path) -and ($env:PATH -notlike "*$path*")) {
+                $env:PATH += ";$path"
+                Write-Info "Added to PATH: $path"
+            }
+        }
+        
+        Write-Success "PATH updated successfully"
         return $true
     }
     catch {
-        Write-Warning "Failed to refresh PATH: $($_.Exception.Message)"
+        Write-Warning "Failed to update PATH: $($_.Exception.Message)"
         return $false
     }
-}
-
-function Test-ValidPath {
-    param($Path)
-    try {
-        if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
-        $Path = $Path.Trim('"').Trim("'").Trim()
-        if ($Path.Length -eq 0) { return $false }
-        $invalidChars = [System.IO.Path]::GetInvalidPathChars()
-        foreach ($char in $invalidChars) {
-            if ($Path.Contains($char)) { return $false }
-        }
-        return $true
-    }
-    catch {
-        return $false
-    }
-}
-
-function Find-VencordDirectory {
-    param($BasePath)
-    
-    Write-Info "Searching for Vencord files in: $BasePath"
-    
-    if (Test-Path "$BasePath\package.json") {
-        $packageContent = Get-Content "$BasePath\package.json" -Raw | ConvertFrom-Json
-        if ($packageContent.name -eq "vencord") {
-            Write-Success "Found Vencord in: $BasePath"
-            return $BasePath
-        }
-    }
-    
-    $possiblePaths = @(
-        "$BasePath\Vencord",
-        "$BasePath\vencord",
-        "$BasePath\Vencord-main",
-        "$BasePath\vencord-main"
-    )
-    
-    foreach ($path in $possiblePaths) {
-        if (Test-Path "$path\package.json") {
-            try {
-                $packageContent = Get-Content "$path\package.json" -Raw | ConvertFrom-Json
-                if ($packageContent.name -eq "vencord") {
-                    Write-Success "Found Vencord in: $path"
-                    return $path
-                }
-            }
-            catch {
-                continue
-            }
-        }
-    }
-    
-    try {
-        $foundPaths = Get-ChildItem -Path $BasePath -Recurse -Depth 2 -Name "package.json" -ErrorAction SilentlyContinue
-        foreach ($packagePath in $foundPaths) {
-            $fullPath = Join-Path $BasePath $packagePath
-            $dirPath = Split-Path $fullPath -Parent
-            try {
-                $packageContent = Get-Content $fullPath -Raw | ConvertFrom-Json
-                if ($packageContent.name -eq "vencord") {
-                    Write-Success "Found Vencord in: $dirPath"
-                    return $dirPath
-                }
-            }
-            catch {
-                continue
-            }
-        }
-    }
-    catch {
-        Write-Warning "Could not search recursively in $BasePath"
-    }
-    
-    return $null
 }
 
 function Install-NodeJS {
     Write-Step "Installing Node.js"
+    
+    # First check if node is available after PATH update
+    Update-SessionPath
     
     if (Test-Command "node") {
         Write-Success "Node.js is already installed: $(node --version)"
         return $true
     }
     
+    Write-Info "Node.js not found. Installing..."
+    
+    # Use Chocolatey if available, otherwise MSI
+    if (Test-Command "choco") {
+        Write-Info "Installing Node.js via Chocolatey..."
+        try {
+            Start-Process -FilePath "choco" -ArgumentList "install", "nodejs", "-y" -Wait -NoNewWindow
+            Update-SessionPath
+            
+            if (Test-Command "node") {
+                Write-Success "Node.js installed successfully via Chocolatey: $(node --version)"
+                return $true
+            }
+        }
+        catch {
+            Write-Warning "Chocolatey installation failed, trying MSI..."
+        }
+    }
+    
+    # Fallback to MSI installation
     $nodeUrl = "https://nodejs.org/dist/v20.10.0/node-v20.10.0-x64.msi"
     $nodeInstaller = "$env:TEMP\nodejs-installer.msi"
     
@@ -170,50 +138,32 @@ function Install-NodeJS {
         Invoke-WebRequest -Uri $nodeUrl -OutFile $nodeInstaller -UseBasicParsing
         
         Write-Info "Installing Node.js (this may take a few minutes)..."
-        $installProcess = Start-Process -FilePath "msiexec.exe" -ArgumentList "/i", $nodeInstaller, "/quiet", "/norestart" -Wait -PassThru
+        $process = Start-Process -FilePath "msiexec.exe" -ArgumentList "/i", "`"$nodeInstaller`"", "/quiet", "/norestart" -Wait -PassThru
         
-        if ($installProcess.ExitCode -ne 0) {
-            throw "Node.js installation failed with exit code: $($installProcess.ExitCode)"
+        if ($process.ExitCode -ne 0) {
+            throw "MSI installation failed with exit code: $($process.ExitCode)"
         }
         
-        # Refresh PATH after installation
-        Refresh-EnvironmentPath
+        # Wait for installation to complete
+        Start-Sleep -Seconds 5
         
-        # Wait a moment for the installation to complete
-        Start-Sleep -Seconds 3
+        # Update PATH multiple times to ensure it's refreshed
+        Update-SessionPath
+        Start-Sleep -Seconds 2
+        Update-SessionPath
         
         # Test if node is now available
         if (Test-Command "node") {
             Write-Success "Node.js installed successfully: $(node --version)"
+            Remove-Item $nodeInstaller -Force -ErrorAction SilentlyContinue
             return $true
         } else {
-            Write-Warning "Node.js installed but command not found. Trying manual PATH refresh..."
-            
-            # Try adding common Node.js paths manually
-            $commonNodePaths = @(
-                "${env:ProgramFiles}\nodejs",
-                "${env:ProgramFiles(x86)}\nodejs",
-                "$env:APPDATA\npm"
-            )
-            
-            foreach ($nodePath in $commonNodePaths) {
-                if (Test-Path $nodePath) {
-                    $env:Path += ";$nodePath"
-                    Write-Info "Added to PATH: $nodePath"
-                }
-            }
-            
-            if (Test-Command "node") {
-                Write-Success "Node.js is now available: $(node --version)"
-                return $true
-            } else {
-                Write-Error "Node.js installation completed but command still not available."
-                Write-Info "Please restart PowerShell and run the script again, or install Node.js manually from https://nodejs.org/"
-                return $false
-            }
+            Write-Error "Node.js installation completed but command not found."
+            Write-Info "Please restart PowerShell and run the script again."
+            Write-Info "Or install Node.js manually from https://nodejs.org/"
+            Remove-Item $nodeInstaller -Force -ErrorAction SilentlyContinue
+            return $false
         }
-        
-        Remove-Item $nodeInstaller -Force -ErrorAction SilentlyContinue
     }
     catch {
         Write-Error "Failed to install Node.js: $($_.Exception.Message)"
@@ -226,11 +176,31 @@ function Install-NodeJS {
 function Install-Git {
     Write-Step "Installing Git"
     
+    Update-SessionPath
+    
     if (Test-Command "git") {
         Write-Success "Git is already installed: $(git --version)"
         return $true
     }
     
+    # Try Chocolatey first
+    if (Test-Command "choco") {
+        Write-Info "Installing Git via Chocolatey..."
+        try {
+            Start-Process -FilePath "choco" -ArgumentList "install", "git", "-y" -Wait -NoNewWindow
+            Update-SessionPath
+            
+            if (Test-Command "git") {
+                Write-Success "Git installed successfully via Chocolatey"
+                return $true
+            }
+        }
+        catch {
+            Write-Warning "Chocolatey installation failed, trying direct download..."
+        }
+    }
+    
+    # Fallback to direct download
     $gitUrl = "https://github.com/git-for-windows/git/releases/download/v2.42.0.windows.2/Git-2.42.0.2-64-bit.exe"
     $gitInstaller = "$env:TEMP\git-installer.exe"
     
@@ -239,27 +209,30 @@ function Install-Git {
         Invoke-WebRequest -Uri $gitUrl -OutFile $gitInstaller -UseBasicParsing
         Start-Process -FilePath $gitInstaller -ArgumentList "/VERYSILENT", "/NORESTART" -Wait
         
-        Refresh-EnvironmentPath
+        Update-SessionPath
         
         if (Test-Command "git") {
             Write-Success "Git installed successfully!"
+            Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
             return $true
         } else {
-            Write-Warning "Git installed, but 'git' command not found. Restart terminal may be required."
+            Write-Warning "Git installed, but command not found. May require restart."
+            Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
             return $false
         }
-        
-        Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
     }
     catch {
         Write-Error "Failed to install Git: $($_.Exception.Message)"
         Write-Info "Install manually from https://git-scm.com/"
+        Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
         return $false
     }
 }
 
 function Install-Pnpm {
     Write-Step "Installing pnpm"
+    
+    Update-SessionPath
     
     if (Test-Command "pnpm") {
         Write-Success "pnpm is already installed: $(pnpm --version)"
@@ -268,40 +241,46 @@ function Install-Pnpm {
     
     if (!(Test-Command "npm")) {
         Write-Error "npm is not available. Node.js installation may have failed."
-        Write-Info "Please restart PowerShell and try again, or install Node.js manually."
+        Write-Info "Please restart PowerShell and try again."
         return $false
     }
     
     try {
         Write-Info "Installing pnpm globally..."
-        $pnpmProcess = Start-Process -FilePath "npm" -ArgumentList "install", "-g", "pnpm" -Wait -PassThru -NoNewWindow
         
-        if ($pnpmProcess.ExitCode -eq 0) {
-            Refresh-EnvironmentPath
+        # Use cmd to run npm to avoid PowerShell execution policy issues
+        $npmProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "npm", "install", "-g", "pnpm" -Wait -PassThru -NoNewWindow
+        
+        if ($npmProcess.ExitCode -eq 0) {
+            Update-SessionPath
+            Start-Sleep -Seconds 2
             
             if (Test-Command "pnpm") {
                 Write-Success "pnpm installed successfully: $(pnpm --version)"
                 return $true
             } else {
-                Write-Warning "pnpm installed but command not found. Adding npm global path..."
-                $npmGlobalPath = npm config get prefix 2>$null
-                if ($npmGlobalPath) {
-                    $env:Path += ";$npmGlobalPath"
+                Write-Warning "pnpm installed but command not found. Trying to locate..."
+                
+                # Try to find pnpm in npm global directory
+                $npmPrefix = cmd /c "npm config get prefix" 2>$null
+                if ($npmPrefix -and (Test-Path "$npmPrefix\pnpm.cmd")) {
+                    $env:PATH += ";$npmPrefix"
                     if (Test-Command "pnpm") {
                         Write-Success "pnpm is now available: $(pnpm --version)"
                         return $true
                     }
                 }
+                
                 Write-Error "pnpm installation completed but command not available."
                 return $false
             }
         } else {
-            throw "pnpm installation failed with exit code: $($pnpmProcess.ExitCode)"
+            throw "npm install failed with exit code: $($npmProcess.ExitCode)"
         }
     }
     catch {
         Write-Error "Failed to install pnpm: $($_.Exception.Message)"
-        Write-Info "You can install pnpm manually with: npm install -g pnpm"
+        Write-Info "You can try installing manually with: npm install -g pnpm"
         return $false
     }
 }
@@ -309,36 +288,20 @@ function Install-Pnpm {
 function Get-VencordPath {
     $defaultPath = Join-Path $env:USERPROFILE "Desktop\Vencord"
     
-    while ($true) {
-        try {
-            Write-Info "Enter the path where Vencord is located (or should be installed):"
-            Write-Info "This should be the directory containing package.json or where you want to clone Vencord"
-            Write-Info "Default: $defaultPath"
-            Write-Info "Press ENTER for default, or type custom path:"
-            
-            $userInput = Read-Host "Path"
-            
-            if ([string]::IsNullOrWhiteSpace($userInput)) {
-                Write-Info "Using default path: $defaultPath"
-                return $defaultPath
-            }
-            
-            $userInput = $userInput.Trim('"').Trim("'").Trim()
-            
-            if (Test-ValidPath $userInput) {
-                Write-Info "Using custom path: $userInput"
-                return $userInput
-            } else {
-                Write-Warning "Invalid path format. Please try again."
-                Write-Info "Example: C:\MyFolder\Vencord"
-                continue
-            }
-        }
-        catch {
-            Write-Warning "Error reading path. Using default: $defaultPath"
-            return $defaultPath
-        }
+    Write-Info "Enter the path where Vencord should be installed:"
+    Write-Info "Default: $defaultPath"
+    Write-Info "Press ENTER for default, or type custom path:"
+    
+    $userInput = Read-Host "Path"
+    
+    if ([string]::IsNullOrWhiteSpace($userInput)) {
+        Write-Info "Using default path: $defaultPath"
+        return $defaultPath
     }
+    
+    $userInput = $userInput.Trim('"').Trim("'").Trim()
+    Write-Info "Using custom path: $userInput"
+    return $userInput
 }
 
 function Install-Vencord {
@@ -347,42 +310,41 @@ function Install-Vencord {
     Write-Step "Setting up Vencord"
     
     try {
-        $vencordDir = Find-VencordDirectory -BasePath $InstallPath
-        
-        if ($vencordDir) {
-            Write-Success "Found existing Vencord installation at: $vencordDir"
-            return $vencordDir
+        # Check if Vencord already exists
+        if (Test-Path "$InstallPath\package.json") {
+            $packageContent = Get-Content "$InstallPath\package.json" -Raw | ConvertFrom-Json
+            if ($packageContent.name -eq "vencord") {
+                Write-Success "Found existing Vencord installation at: $InstallPath"
+                return $InstallPath
+            }
         }
         
-        Write-Info "Vencord not found. Cloning Vencord repository..."
+        Write-Info "Cloning Vencord repository..."
         
         $parentDir = Split-Path $InstallPath -Parent
         if (!(Test-Path $parentDir)) {
-            Write-Info "Creating directory: $parentDir"
             New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+        }
+        
+        if (Test-Path $InstallPath) {
+            Write-Warning "Removing existing directory: $InstallPath"
+            Remove-Item $InstallPath -Recurse -Force
         }
         
         $currentLocation = Get-Location
         Set-Location $parentDir
         
         $targetDirName = Split-Path $InstallPath -Leaf
-        if (Test-Path $InstallPath) {
-            Write-Warning "Directory $InstallPath already exists. Removing..."
-            Remove-Item $InstallPath -Recurse -Force
-        }
-        
         git clone https://github.com/Vendicated/Vencord.git $targetDirName
+        
         Set-Location $currentLocation
         
         if (Test-Path "$InstallPath\package.json") {
-            $packageContent = Get-Content "$InstallPath\package.json" -Raw | ConvertFrom-Json
-            if ($packageContent.name -eq "vencord") {
-                Write-Success "Vencord cloned successfully to: $InstallPath"
-                return $InstallPath
-            }
+            Write-Success "Vencord cloned successfully to: $InstallPath"
+            return $InstallPath
+        } else {
+            throw "Vencord clone failed - package.json not found"
         }
-        
-        throw "Vencord clone verification failed - package.json not found or invalid"
     }
     catch {
         Write-Error "Failed to setup Vencord: $($_.Exception.Message)"
@@ -398,8 +360,10 @@ function Install-VencordDependencies {
     try {
         $currentLocation = Get-Location
         Set-Location $VencordPath
+        
         Write-Info "Installing dependencies with pnpm..."
         pnpm install
+        
         Set-Location $currentLocation
         Write-Success "Vencord dependencies installed successfully!"
         return $true
@@ -413,52 +377,42 @@ function Install-VencordDependencies {
 function Install-MultiMessageCopy {
     param($VencordPath)
     
-    Write-Step "Installing MultiMessageCopy Plugin v1.1"
+    Write-Step "Installing MultiMessageCopy Plugin"
     
     try {
         $userPluginsPath = Join-Path $VencordPath "src\userplugins"
-        $multiMessageCopyPath = Join-Path $userPluginsPath "MultiMessageCopy"
-        
-        if (Test-Path "$multiMessageCopyPath\index.tsx") {
-            Write-Success "MultiMessageCopy plugin already exists!"
-            return $true
-        }
+        $pluginPath = Join-Path $userPluginsPath "MultiMessageCopy"
         
         if (!(Test-Path $userPluginsPath)) {
             New-Item -ItemType Directory -Path $userPluginsPath -Force | Out-Null
             Write-Info "Created userplugins directory"
         }
         
+        if (Test-Path $pluginPath) {
+            Write-Info "Removing existing MultiMessageCopy directory..."
+            Remove-Item $pluginPath -Recurse -Force
+        }
+        
         Write-Info "Cloning MultiMessageCopy plugin repository..."
         $currentLocation = Get-Location
         Set-Location $userPluginsPath
         
-        if (Test-Path $multiMessageCopyPath) {
-            Write-Info "Removing existing MultiMessageCopy directory..."
-            Remove-Item $multiMessageCopyPath -Recurse -Force
-        }
+        git clone https://github.com/tsx-awtns/MultiMessageCopy.git temp-plugin
         
-        git clone https://github.com/tsx-awtns/MultiMessageCopy.git temp-multimessagecopy
-        
-        if (Test-Path "temp-multimessagecopy\MultiMessageCopyFiles") {
-            Copy-Item "temp-multimessagecopy\MultiMessageCopyFiles" -Destination "MultiMessageCopy" -Recurse -Force
-            Remove-Item "temp-multimessagecopy" -Recurse -Force
+        if (Test-Path "temp-plugin\MultiMessageCopyFiles") {
+            Move-Item "temp-plugin\MultiMessageCopyFiles" "MultiMessageCopy"
+            Remove-Item "temp-plugin" -Recurse -Force
+            Write-Success "MultiMessageCopy plugin installed successfully!"
         } else {
-            throw "MultiMessageCopyFiles subfolder not found in repository"
+            throw "MultiMessageCopyFiles folder not found in repository"
         }
         
         Set-Location $currentLocation
-        
-        if (Test-Path "$multiMessageCopyPath\index.tsx") {
-            Write-Success "MultiMessageCopy plugin v1.1 cloned successfully!"
-            return $true
-        } else {
-            throw "MultiMessageCopy plugin files not found after cloning"
-        }
+        return $true
     }
     catch {
-        Write-Error "Failed to clone MultiMessageCopy plugin: $($_.Exception.Message)"
-        Write-Info "Manual clone: https://github.com/tsx-awtns/MultiMessageCopy.git (files are in MultiMessageCopyFiles/ subfolder)"
+        Write-Error "Failed to install MultiMessageCopy plugin: $($_.Exception.Message)"
+        Write-Info "You can clone manually: https://github.com/tsx-awtns/MultiMessageCopy.git"
         return $false
     }
 }
@@ -466,13 +420,15 @@ function Install-MultiMessageCopy {
 function Build-Vencord {
     param($VencordPath)
     
-    Write-Step "Building Vencord with MultiMessageCopy v1.1"
+    Write-Step "Building Vencord"
     
     try {
         $currentLocation = Get-Location
         Set-Location $VencordPath
+        
         Write-Info "Building Vencord with MultiMessageCopy plugin..."
         pnpm build
+        
         Set-Location $currentLocation
         Write-Success "Vencord built successfully!"
         return $true
@@ -491,16 +447,17 @@ function Inject-Vencord {
     try {
         $currentLocation = Get-Location
         Set-Location $VencordPath
+        
         Write-Info "Injecting Vencord into Discord..."
-        Write-Warning "Press ENTER for default Discord path, or enter custom path."
         pnpm inject
+        
         Set-Location $currentLocation
         Write-Success "Vencord injection completed!"
         return $true
     }
     catch {
         Write-Error "Failed to inject Vencord: $($_.Exception.Message)"
-        Write-Info "Run 'pnpm inject' manually in the Vencord directory later."
+        Write-Info "You can run 'pnpm inject' manually in the Vencord directory."
         return $false
     }
 }
@@ -509,12 +466,10 @@ function Main {
     Write-Host @"
 ╔══════════════════════════════════════════════════════════════╗
 ║                MultiMessageCopy Setup Script                ║
-║                        Version 1.1                          ║
+║                        Version 1.2                          ║
 ║                     by tsx-awtns                             ║
 ╚══════════════════════════════════════════════════════════════╝
 "@ -ForegroundColor Cyan
-
-    $setupFailed = $false
 
     try {
         if (!(Test-Administrator)) {
@@ -522,7 +477,6 @@ function Main {
             $continue = Read-Host "Continue anyway? (y/N)"
             if ($continue -ne "y" -and $continue -ne "Y") { 
                 Write-Info "Exiting..."
-                Read-Host "Press Enter to exit"
                 exit 0 
             }
         }
@@ -531,6 +485,7 @@ function Main {
         if (!$SkipNodeInstall) { 
             if (!(Install-NodeJS)) {
                 Write-Error "Node.js installation failed. Cannot continue."
+                Write-Info "Please install Node.js manually and restart PowerShell."
                 Read-Host "Press Enter to exit"
                 exit 1
             }
@@ -539,18 +494,19 @@ function Main {
         # Install Git
         if (!$SkipGitInstall) { 
             if (!(Install-Git)) {
-                Write-Warning "Git installation failed, but continuing..."
+                Write-Warning "Git installation failed. You may need to install it manually."
             }
         }
         
         # Install pnpm
         if (!(Install-Pnpm)) {
             Write-Error "pnpm installation failed. Cannot continue."
+            Write-Info "Please restart PowerShell and try again."
             Read-Host "Press Enter to exit"
             exit 1
         }
         
-        # Get Vencord path
+        # Get Vencord installation path
         if ([string]::IsNullOrEmpty($VencordPath)) {
             $VencordPath = Get-VencordPath
         }
@@ -563,28 +519,29 @@ function Main {
             exit 1
         }
         
-        # Install Vencord dependencies
+        # Install dependencies
         if (!(Install-VencordDependencies -VencordPath $vencordDir)) {
-            Write-Error "Vencord dependencies installation failed. Cannot continue."
+            Write-Error "Failed to install Vencord dependencies."
             Read-Host "Press Enter to exit"
             exit 1
         }
         
-        # Install MultiMessageCopy plugin
+        # Install plugin
         if (!(Install-MultiMessageCopy -VencordPath $vencordDir)) {
-            Write-Error "MultiMessageCopy plugin installation failed. Cannot continue."
+            Write-Error "Failed to install MultiMessageCopy plugin."
             Read-Host "Press Enter to exit"
             exit 1
         }
         
         # Build Vencord
         if (!(Build-Vencord -VencordPath $vencordDir)) {
-            Write-Error "Vencord build failed. Cannot continue."
+            Write-Error "Failed to build Vencord."
             Read-Host "Press Enter to exit"
             exit 1
         }
         
-        Write-Info "`nVencord and MultiMessageCopy v1.1 are ready!"
+        # Ask about injection
+        Write-Info "`nSetup completed successfully!"
         $inject = Read-Host "Inject Vencord into Discord now? (Y/n)"
         if ($inject -ne "n" -and $inject -ne "N") {
             Inject-Vencord -VencordPath $vencordDir
@@ -592,48 +549,31 @@ function Main {
         
         Write-Step "Setup Complete!"
         Write-Success @"
-✅ MultiMessageCopy v1.1 plugin installed successfully!
+✅ MultiMessageCopy plugin installed successfully!
 
 NEXT STEPS:
 1. Restart Discord
-2. Settings > Vencord > Plugins > Enable 'MultiMessageCopy'
-3. Use the plugin features in Discord
+2. Go to Settings > Vencord > Plugins
+3. Enable 'MultiMessageCopy'
+4. Use the plugin features in Discord
 
+INSTALLATION PATH: $vencordDir
 REPOSITORY: https://github.com/tsx-awtns/MultiMessageCopy
-
-SUPPORT: Check the repository for issues and documentation
 "@
 
-        Write-Info "`nInstallation: $vencordDir"
         if ($inject -eq "n" -or $inject -eq "N") {
-            Write-Warning "Run 'pnpm inject' in Vencord directory to inject into Discord!"
+            Write-Warning "`nTo inject Vencord later, run 'pnpm inject' in: $vencordDir"
         }
         
-        Write-Info "`nSetup completed successfully!"
-        Read-Host "Press Enter to exit"
+        Read-Host "`nPress Enter to exit"
     }
     catch {
         Write-Error "Setup failed: $($_.Exception.Message)"
-        Write-Info "Try manual installation or check README.md"
+        Write-Info "Check the error messages above and try again."
         Read-Host "Press Enter to exit"
         exit 1
     }
 }
 
-try {
-    Main
-}
-catch {
-    Write-Error "Critical error: $($_.Exception.Message)"
-    Read-Host "Press Enter to exit"
-    exit 1
-}
-finally {
-    try {
-        if ($PWD.Path -ne $PSScriptRoot -and $PSScriptRoot) { 
-            Set-Location $PSScriptRoot 
-        }
-    }
-    catch {
-    }
-}
+# Run the main function
+Main
