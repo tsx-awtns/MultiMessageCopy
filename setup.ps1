@@ -1,5 +1,5 @@
 # MultiMessageCopy Setup Script v2.2 - Fixed Admin Handling
-# Author: tsx-awtns (Enhanced by axolotle024 & www.syva.uk)
+# Author: tsx-awtns (Enhanced by axolotle024)
 
 param([switch]$SkipNodeInstall, [switch]$SkipGitInstall, [string]$VencordPath = "", [switch]$Help, [switch]$UseChocolatey)
 
@@ -104,10 +104,20 @@ function Start-AdminPowerShell {
     Write-Host ""
     
     try {
-        # Get the current script path
-        $scriptPath = $MyInvocation.ScriptName
-        if ([string]::IsNullOrEmpty($scriptPath)) {
+        # Try to get the current script path
+        $scriptPath = $null
+        
+        # Method 1: Try PSCommandPath (works when script is saved as file)
+        if (![string]::IsNullOrEmpty($PSCommandPath)) {
             $scriptPath = $PSCommandPath
+        }
+        # Method 2: Try MyInvocation.MyCommand.Path
+        elseif ($MyInvocation.MyCommand.Path) {
+            $scriptPath = $MyInvocation.MyCommand.Path
+        }
+        # Method 3: Try MyInvocation.ScriptName
+        elseif (![string]::IsNullOrEmpty($MyInvocation.ScriptName)) {
+            $scriptPath = $MyInvocation.ScriptName
         }
         
         # Build arguments to pass to the new instance
@@ -119,19 +129,40 @@ function Start-AdminPowerShell {
         
         $argumentString = $arguments -join " "
         
-        if (Test-Path $scriptPath) {
+        if (![string]::IsNullOrEmpty($scriptPath) -and (Test-Path $scriptPath)) {
             # Script file exists, restart it directly
             Write-Info "Restarting from file: $scriptPath"
             $processArgs = "-NoExit -ExecutionPolicy Bypass -File `"$scriptPath`" $argumentString"
         } else {
-            # Fallback to download command
-            Write-Info "Using download method..."
-            $downloadCommand = 'iwr "https://raw.githubusercontent.com/tsx-awtns/MultiMessageCopy/main/setup.ps1" -UseBasicParsing | iex'
-            $processArgs = "-NoExit -ExecutionPolicy Bypass -Command `"$downloadCommand`""
+            # Script was run from web or no file path available - use download method
+            Write-Info "Script was run from web, using download method..."
+            
+            # Create a temporary script file with current parameters
+            $tempScript = "$env:TEMP\MultiMessageCopy-Setup.ps1"
+            
+            # Download the script to temp file first
+            try {
+                Write-Host "Downloading script to temporary file..." -ForegroundColor Gray
+                Invoke-WebRequest -Uri "https://raw.githubusercontent.com/tsx-awtns/MultiMessageCopy/main/setup.ps1" -OutFile $tempScript -UseBasicParsing
+                
+                if (Test-Path $tempScript) {
+                    Write-Success "Script downloaded successfully"
+                    $processArgs = "-NoExit -ExecutionPolicy Bypass -File `"$tempScript`" $argumentString"
+                } else {
+                    throw "Failed to download script to temporary file"
+                }
+            } catch {
+                # Final fallback - direct execution
+                Write-Warning "Download to temp file failed, using direct execution..."
+                $downloadCommand = "iwr 'https://raw.githubusercontent.com/tsx-awtns/MultiMessageCopy/main/setup.ps1' -UseBasicParsing | iex"
+                $processArgs = "-NoExit -ExecutionPolicy Bypass -Command `"$downloadCommand`""
+            }
         }
         
         Write-Host "Starting new PowerShell window as Administrator..." -ForegroundColor Gray
-        Write-Host "Arguments: $argumentString" -ForegroundColor Gray
+        if (![string]::IsNullOrEmpty($argumentString)) {
+            Write-Host "Arguments: $argumentString" -ForegroundColor Gray
+        }
         
         # Start new PowerShell as Administrator
         $processInfo = New-Object System.Diagnostics.ProcessStartInfo
@@ -139,7 +170,7 @@ function Start-AdminPowerShell {
         $processInfo.Arguments = $processArgs
         $processInfo.Verb = "runas"
         $processInfo.UseShellExecute = $true
-        $processInfo.WorkingDirectory = Get-Location
+        $processInfo.WorkingDirectory = (Get-Location).Path
         
         $process = [System.Diagnostics.Process]::Start($processInfo)
         
@@ -149,7 +180,8 @@ function Start-AdminPowerShell {
             Write-Host ""
             Write-Host "If the new window didn't open:" -ForegroundColor Yellow
             Write-Host "1. Click 'Yes' on the UAC prompt" -ForegroundColor White
-            Write-Host "2. Or manually run PowerShell as Administrator" -ForegroundColor White
+            Write-Host "2. Or manually run PowerShell as Administrator and paste:" -ForegroundColor White
+            Write-Host "   iwr 'https://raw.githubusercontent.com/tsx-awtns/MultiMessageCopy/main/setup.ps1' -UseBasicParsing | iex" -ForegroundColor Gray
             Write-Host ""
         } else {
             throw "Failed to start new process"
@@ -161,7 +193,10 @@ function Start-AdminPowerShell {
         Write-Host "MANUAL STEPS:" -ForegroundColor Yellow
         Write-Host "1. Right-click on PowerShell icon" -ForegroundColor White
         Write-Host "2. Select 'Run as Administrator'" -ForegroundColor White
-        Write-Host "3. Navigate to script directory and run:" -ForegroundColor White
+        Write-Host "3. Copy and paste this command:" -ForegroundColor White
+        Write-Host "   iwr 'https://raw.githubusercontent.com/tsx-awtns/MultiMessageCopy/main/setup.ps1' -UseBasicParsing | iex" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "Or if you have the script file saved locally:" -ForegroundColor White
         Write-Host "   .\setup-enhanced-fixed.ps1" -ForegroundColor Gray
         Write-Host ""
     }
