@@ -1,5 +1,5 @@
-# MultiMessageCopy Setup Script v2.1 - Enhanced Admin Handling
-# Author: tsx-awtns (Enhanced by axolotle024)
+# MultiMessageCopy Setup Script v2.2 - Fixed Admin Handling
+# Author: tsx-awtns (Enhanced by axolotle024 & www.syva.uk)
 
 param([switch]$SkipNodeInstall, [switch]$SkipGitInstall, [string]$VencordPath = "", [switch]$Help, [switch]$UseChocolatey)
 
@@ -20,18 +20,18 @@ function Write-Banner {
     Write-Host " | |  | | |_| | |_| | | |  | || |  | | |___ ___) |__) / ___ \ |_| | |___" -ForegroundColor Cyan
     Write-Host " |_|  |_|\___/ \___/  |_| |___|_|  |_|_____|____/____/_/   \_\____|_____|" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "                        COPY PLUGIN SETUP v2.1" -ForegroundColor White
+    Write-Host "                        COPY PLUGIN SETUP v2.2" -ForegroundColor White
     Write-Host ""
     Write-Host "    +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
-    Write-Host "    |                MultiMessageCopy Setup Script v2.1                  |" -ForegroundColor White
-    Write-Host "    |                Enhanced Admin Handling & Installation              |" -ForegroundColor Gray
+    Write-Host "    |                MultiMessageCopy Setup Script v2.2                  |" -ForegroundColor White
+    Write-Host "    |                    Fixed Admin Handling                            |" -ForegroundColor Gray
     Write-Host "    +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
     Write-Host ""
 }
 
 if ($Help) {
     Write-Banner
-    Write-Host "USAGE: .\setup-enhanced.ps1 [OPTIONS]" -ForegroundColor White
+    Write-Host "USAGE: .\setup-enhanced-fixed.ps1 [OPTIONS]" -ForegroundColor White
     Write-Host ""
     Write-Host "OPTIONS:" -ForegroundColor Yellow
     Write-Host "  -SkipNodeInstall    Skip Node.js installation" -ForegroundColor Gray
@@ -41,8 +41,8 @@ if ($Help) {
     Write-Host "  -Help               Show this help" -ForegroundColor Gray
     Write-Host ""
     Write-Host "EXAMPLES:" -ForegroundColor Yellow
-    Write-Host "  .\setup-enhanced.ps1 -UseChocolatey" -ForegroundColor Gray
-    Write-Host "  .\setup-enhanced.ps1 -VencordPath 'C:\MyVencord'" -ForegroundColor Gray
+    Write-Host "  .\setup-enhanced-fixed.ps1 -UseChocolatey" -ForegroundColor Gray
+    Write-Host "  .\setup-enhanced-fixed.ps1 -VencordPath 'C:\MyVencord'" -ForegroundColor Gray
     Write-Host ""
     exit 0
 }
@@ -81,7 +81,7 @@ function Get-AdminChoice {
         Write-Host ""
         Write-Host "[1] Exit - Close this script" -ForegroundColor Gray
         Write-Host "[2] Continue - Proceed without admin rights (may fail)" -ForegroundColor Gray
-        Write-Host "[3] Run PowerShell (Administrator) - Restart with admin rights" -ForegroundColor Green
+        Write-Host "[3] Restart as Administrator - Recommended" -ForegroundColor Green
         Write-Host ""
         Write-Host "Enter your choice (1-3): " -NoNewline -ForegroundColor Cyan
         
@@ -100,60 +100,69 @@ function Get-AdminChoice {
 }
 
 function Start-AdminPowerShell {
-    Write-Info "Starting PowerShell as Administrator..."
+    Write-Info "Restarting script with Administrator privileges..."
     Write-Host ""
-    Write-Host "INSTRUCTIONS:" -ForegroundColor Yellow
-    Write-Host "1. A new PowerShell window will open as Administrator" -ForegroundColor White
-    Write-Host "2. The download command will be automatically copied to clipboard" -ForegroundColor White
-    Write-Host "3. Paste it in the new window (Ctrl+V or Right-click -> Paste)" -ForegroundColor White
-    Write-Host "4. Press Enter to run the script" -ForegroundColor White
-    Write-Host ""
-    
-    # The command to restart the script
-    $restartCommand = 'iwr "https://raw.githubusercontent.com/tsx-awtns/MultiMessageCopy/main/setup.ps1" -UseBasicParsing | iex'
     
     try {
-        # Copy command to clipboard
-        Set-Clipboard -Value $restartCommand
-        Write-Success "Command copied to clipboard!"
+        # Get the current script path
+        $scriptPath = $MyInvocation.ScriptName
+        if ([string]::IsNullOrEmpty($scriptPath)) {
+            $scriptPath = $PSCommandPath
+        }
         
-        # Create a script block that will run in the new PowerShell window
-        $scriptBlock = @"
-Write-Host 'PowerShell started as Administrator' -ForegroundColor Green
-Write-Host 'The download command has been copied to your clipboard.' -ForegroundColor Cyan
-Write-Host 'Paste it here (Ctrl+V or Right-click -> Paste) and press Enter:' -ForegroundColor Yellow
-Write-Host ''
-Write-Host 'Command: $restartCommand' -ForegroundColor Gray
-Write-Host ''
-"@
+        # Build arguments to pass to the new instance
+        $arguments = @()
+        if ($SkipNodeInstall) { $arguments += "-SkipNodeInstall" }
+        if ($SkipGitInstall) { $arguments += "-SkipGitInstall" }
+        if ($UseChocolatey) { $arguments += "-UseChocolatey" }
+        if (![string]::IsNullOrEmpty($VencordPath)) { $arguments += "-VencordPath '$VencordPath'" }
+        
+        $argumentString = $arguments -join " "
+        
+        if (Test-Path $scriptPath) {
+            # Script file exists, restart it directly
+            Write-Info "Restarting from file: $scriptPath"
+            $processArgs = "-NoExit -ExecutionPolicy Bypass -File `"$scriptPath`" $argumentString"
+        } else {
+            # Fallback to download command
+            Write-Info "Using download method..."
+            $downloadCommand = 'iwr "https://raw.githubusercontent.com/tsx-awtns/MultiMessageCopy/main/setup.ps1" -UseBasicParsing | iex'
+            $processArgs = "-NoExit -ExecutionPolicy Bypass -Command `"$downloadCommand`""
+        }
+        
+        Write-Host "Starting new PowerShell window as Administrator..." -ForegroundColor Gray
+        Write-Host "Arguments: $argumentString" -ForegroundColor Gray
         
         # Start new PowerShell as Administrator
         $processInfo = New-Object System.Diagnostics.ProcessStartInfo
         $processInfo.FileName = "powershell.exe"
-        $processInfo.Arguments = "-NoExit -Command `"$scriptBlock`""
+        $processInfo.Arguments = $processArgs
         $processInfo.Verb = "runas"
         $processInfo.UseShellExecute = $true
+        $processInfo.WorkingDirectory = Get-Location
         
-        [System.Diagnostics.Process]::Start($processInfo) | Out-Null
+        $process = [System.Diagnostics.Process]::Start($processInfo)
         
-        Write-Host ""
-        Write-Success "New PowerShell window opened as Administrator"
-        Write-Info "You can now close this window"
-        Write-Host ""
-        Write-Host "If the new window didn't open, manually:" -ForegroundColor Yellow
-        Write-Host "1. Right-click PowerShell -> Run as Administrator" -ForegroundColor White
-        Write-Host "2. Paste this command:" -ForegroundColor White
-        Write-Host "   $restartCommand" -ForegroundColor Gray
-        Write-Host ""
+        if ($process) {
+            Write-Success "New PowerShell window started as Administrator"
+            Write-Info "You can close this window now"
+            Write-Host ""
+            Write-Host "If the new window didn't open:" -ForegroundColor Yellow
+            Write-Host "1. Click 'Yes' on the UAC prompt" -ForegroundColor White
+            Write-Host "2. Or manually run PowerShell as Administrator" -ForegroundColor White
+            Write-Host ""
+        } else {
+            throw "Failed to start new process"
+        }
         
     } catch {
-        Write-Error "Failed to start PowerShell as Administrator: $($_.Exception.Message)"
+        Write-Error "Failed to restart as Administrator: $($_.Exception.Message)"
         Write-Host ""
         Write-Host "MANUAL STEPS:" -ForegroundColor Yellow
         Write-Host "1. Right-click on PowerShell icon" -ForegroundColor White
         Write-Host "2. Select 'Run as Administrator'" -ForegroundColor White
-        Write-Host "3. Copy and paste this command:" -ForegroundColor White
-        Write-Host "   $restartCommand" -ForegroundColor Gray
+        Write-Host "3. Navigate to script directory and run:" -ForegroundColor White
+        Write-Host "   .\setup-enhanced-fixed.ps1" -ForegroundColor Gray
         Write-Host ""
     }
     
@@ -238,6 +247,9 @@ function Install-Chocolatey {
         # Refresh PATH to include chocolatey
         $env:PATH += ";$env:ALLUSERSPROFILE\chocolatey\bin"
         
+        # Wait a moment for installation to complete
+        Start-Sleep -Seconds 3
+        
         if (Test-Command "choco") {
             Write-Success "Chocolatey installed successfully"
             return $true
@@ -259,7 +271,7 @@ function Install-NodeJS {
             $process = Start-Process -FilePath "choco" -ArgumentList "install", "nodejs", "-y" -Wait -PassThru -NoNewWindow
             if ($process.ExitCode -eq 0) {
                 Update-SessionPath
-                Start-Sleep -Seconds 3
+                Start-Sleep -Seconds 5
                 if (Test-Command "node") {
                     Write-Success "Node.js installed via Chocolatey"
                     return $true
@@ -270,31 +282,30 @@ function Install-NodeJS {
         }
     }
     
-    # Fallback to direct download with updated URL
+    # Fallback to direct download
     try {
         Write-Host "Downloading Node.js installer..." -ForegroundColor Gray
         $nodeUrl = "https://nodejs.org/dist/v20.11.0/node-v20.11.0-x64.msi"
         $nodeInstaller = "$env:TEMP\nodejs-installer.msi"
         
         # Download with progress
-        $webClient = New-Object System.Net.WebClient
-        $webClient.DownloadFile($nodeUrl, $nodeInstaller)
+        Invoke-WebRequest -Uri $nodeUrl -OutFile $nodeInstaller -UseBasicParsing
         
         Write-Host "Installing Node.js..." -ForegroundColor Gray
         $process = Start-Process -FilePath "msiexec.exe" -ArgumentList "/i", "`"$nodeInstaller`"", "/quiet", "/norestart" -Wait -PassThru
         
         if ($process.ExitCode -eq 0) {
-            Start-Sleep -Seconds 5
+            Start-Sleep -Seconds 10
             Update-SessionPath
             
             # Try multiple times to detect Node.js
-            for ($i = 1; $i -le 3; $i++) {
+            for ($i = 1; $i -le 5; $i++) {
                 if (Test-Command "node") {
                     Write-Success "Node.js installed successfully"
                     Remove-Item $nodeInstaller -Force -ErrorAction SilentlyContinue
                     return $true
                 }
-                Write-Host "Attempt $i/3: Waiting for Node.js to be available..." -ForegroundColor Gray
+                Write-Host "Attempt $i/5: Waiting for Node.js to be available..." -ForegroundColor Gray
                 Start-Sleep -Seconds 3
                 Update-SessionPath
             }
@@ -320,7 +331,7 @@ function Install-Git {
             $process = Start-Process -FilePath "choco" -ArgumentList "install", "git", "-y" -Wait -PassThru -NoNewWindow
             if ($process.ExitCode -eq 0) {
                 Update-SessionPath
-                Start-Sleep -Seconds 3
+                Start-Sleep -Seconds 5
                 if (Test-Command "git") {
                     Write-Success "Git installed via Chocolatey"
                     return $true
@@ -331,31 +342,30 @@ function Install-Git {
         }
     }
     
-    # Fallback to direct download with updated URL
+    # Fallback to direct download
     try {
         Write-Host "Downloading Git installer..." -ForegroundColor Gray
         $gitUrl = "https://github.com/git-for-windows/git/releases/download/v2.43.0.windows.1/Git-2.43.0-64-bit.exe"
         $gitInstaller = "$env:TEMP\git-installer.exe"
         
         # Download with progress
-        $webClient = New-Object System.Net.WebClient
-        $webClient.DownloadFile($gitUrl, $gitInstaller)
+        Invoke-WebRequest -Uri $gitUrl -OutFile $gitInstaller -UseBasicParsing
         
         Write-Host "Installing Git..." -ForegroundColor Gray
         $process = Start-Process -FilePath $gitInstaller -ArgumentList "/VERYSILENT", "/NORESTART", "/NOCANCEL", "/SP-", "/CLOSEAPPLICATIONS", "/RESTARTAPPLICATIONS" -Wait -PassThru
         
         if ($process.ExitCode -eq 0) {
-            Start-Sleep -Seconds 5
+            Start-Sleep -Seconds 10
             Update-SessionPath
             
             # Try multiple times to detect Git
-            for ($i = 1; $i -le 3; $i++) {
+            for ($i = 1; $i -le 5; $i++) {
                 if (Test-Command "git") {
                     Write-Success "Git installed successfully"
                     Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
                     return $true
                 }
-                Write-Host "Attempt $i/3: Waiting for Git to be available..." -ForegroundColor Gray
+                Write-Host "Attempt $i/5: Waiting for Git to be available..." -ForegroundColor Gray
                 Start-Sleep -Seconds 3
                 Update-SessionPath
             }
@@ -374,7 +384,7 @@ function Install-Git {
 Write-Banner
 
 try {
-    # Enhanced Administrator check with better options
+    # Enhanced Administrator check with better restart handling
     if (!(Test-Administrator)) {
         $adminChoice = Get-AdminChoice
         
@@ -478,7 +488,7 @@ try {
                 $process = Start-Process -FilePath "choco" -ArgumentList "install", "pnpm", "-y" -Wait -PassThru -NoNewWindow
                 if ($process.ExitCode -eq 0) {
                     Update-SessionPath
-                    Start-Sleep -Seconds 2
+                    Start-Sleep -Seconds 3
                     if (Test-Command "pnpm") {
                         Write-Success "pnpm installed via Chocolatey"
                         $pnpmInstalled = $true
@@ -495,7 +505,7 @@ try {
                 $npmProcess = Start-Process -FilePath "npm" -ArgumentList "install", "-g", "pnpm" -Wait -PassThru -NoNewWindow
                 if ($npmProcess.ExitCode -eq 0) {
                     Update-SessionPath
-                    Start-Sleep -Seconds 2
+                    Start-Sleep -Seconds 3
                     if (Test-Command "pnpm") {
                         $version = pnpm --version
                         Write-Success "pnpm installed successfully: $version"
@@ -698,6 +708,7 @@ try {
     Write-Host ""
     Write-Host "Repository: https://github.com/tsx-awtns/MultiMessageCopy" -ForegroundColor Blue
     Write-Host ""
+
     Read-Host "Press Enter to exit"
 
 } catch {
