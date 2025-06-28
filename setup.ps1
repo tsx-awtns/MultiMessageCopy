@@ -1,5 +1,5 @@
 # MultiMessageCopy Setup Script v2.0 - Improved Version
-# Author: tsx-awtns (Enhanced by v0)
+# Author: tsx-awtns 
 
 param([switch]$SkipNodeInstall, [switch]$SkipGitInstall, [string]$VencordPath = "", [switch]$Help, [switch]$UseChocolatey)
 
