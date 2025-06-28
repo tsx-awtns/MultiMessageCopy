@@ -1,5 +1,5 @@
-# MultiMessageCopy Setup Script v2.0 - Improved Version
-# Author: tsx-awtns 
+# MultiMessageCopy Setup Script v2.1 - Enhanced Admin Handling
+# Author: tsx-awtns (Enhanced by axolotle024)
 
 param([switch]$SkipNodeInstall, [switch]$SkipGitInstall, [string]$VencordPath = "", [switch]$Help, [switch]$UseChocolatey)
 
@@ -20,18 +20,18 @@ function Write-Banner {
     Write-Host " | |  | | |_| | |_| | | |  | || |  | | |___ ___) |__) / ___ \ |_| | |___" -ForegroundColor Cyan
     Write-Host " |_|  |_|\___/ \___/  |_| |___|_|  |_|_____|____/____/_/   \_\____|_____|" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "                        COPY PLUGIN SETUP v2.0" -ForegroundColor White
+    Write-Host "                        COPY PLUGIN SETUP v2.1" -ForegroundColor White
     Write-Host ""
     Write-Host "    +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
-    Write-Host "    |                MultiMessageCopy Setup Script v2.0                  |" -ForegroundColor White
-    Write-Host "    |                    Enhanced Installation System                    |" -ForegroundColor Gray
+    Write-Host "    |                MultiMessageCopy Setup Script v2.1                  |" -ForegroundColor White
+    Write-Host "    |                Enhanced Admin Handling & Installation              |" -ForegroundColor Gray
     Write-Host "    +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
     Write-Host ""
 }
 
 if ($Help) {
     Write-Banner
-    Write-Host "USAGE: .\setup-improved.ps1 [OPTIONS]" -ForegroundColor White
+    Write-Host "USAGE: .\setup-enhanced.ps1 [OPTIONS]" -ForegroundColor White
     Write-Host ""
     Write-Host "OPTIONS:" -ForegroundColor Yellow
     Write-Host "  -SkipNodeInstall    Skip Node.js installation" -ForegroundColor Gray
@@ -41,8 +41,8 @@ if ($Help) {
     Write-Host "  -Help               Show this help" -ForegroundColor Gray
     Write-Host ""
     Write-Host "EXAMPLES:" -ForegroundColor Yellow
-    Write-Host "  .\setup-improved.ps1 -UseChocolatey" -ForegroundColor Gray
-    Write-Host "  .\setup-improved.ps1 -VencordPath 'C:\MyVencord'" -ForegroundColor Gray
+    Write-Host "  .\setup-enhanced.ps1 -UseChocolatey" -ForegroundColor Gray
+    Write-Host "  .\setup-enhanced.ps1 -VencordPath 'C:\MyVencord'" -ForegroundColor Gray
     Write-Host ""
     exit 0
 }
@@ -64,6 +64,101 @@ function Test-Command($Command) {
     } catch { 
         return $false 
     }
+}
+
+function Get-AdminChoice {
+    do {
+        Write-Host ""
+        Write-Host "ADMINISTRATOR PRIVILEGES REQUIRED" -ForegroundColor Red -BackgroundColor Black
+        Write-Host ("=" * 60) -ForegroundColor DarkGray
+        Write-Host ""
+        Write-Host "This script works best with Administrator privileges for:" -ForegroundColor Yellow
+        Write-Host "• Installing Node.js and Git" -ForegroundColor White
+        Write-Host "• Installing Chocolatey package manager" -ForegroundColor White
+        Write-Host "• Modifying system PATH variables" -ForegroundColor White
+        Write-Host ""
+        Write-Host "AVAILABLE OPTIONS:" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "[1] Exit - Close this script" -ForegroundColor Gray
+        Write-Host "[2] Continue - Proceed without admin rights (may fail)" -ForegroundColor Gray
+        Write-Host "[3] Run PowerShell (Administrator) - Restart with admin rights" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "Enter your choice (1-3): " -NoNewline -ForegroundColor Cyan
+        
+        $choice = Read-Host
+        
+        switch ($choice) {
+            "1" { return "EXIT" }
+            "2" { return "CONTINUE" }
+            "3" { return "ADMIN" }
+            default { 
+                Write-Warning "Invalid choice. Please enter 1, 2, or 3."
+                continue
+            }
+        }
+    } while ($true)
+}
+
+function Start-AdminPowerShell {
+    Write-Info "Starting PowerShell as Administrator..."
+    Write-Host ""
+    Write-Host "INSTRUCTIONS:" -ForegroundColor Yellow
+    Write-Host "1. A new PowerShell window will open as Administrator" -ForegroundColor White
+    Write-Host "2. The download command will be automatically copied to clipboard" -ForegroundColor White
+    Write-Host "3. Paste it in the new window (Ctrl+V or Right-click -> Paste)" -ForegroundColor White
+    Write-Host "4. Press Enter to run the script" -ForegroundColor White
+    Write-Host ""
+    
+    # The command to restart the script
+    $restartCommand = 'iwr "https://raw.githubusercontent.com/tsx-awtns/MultiMessageCopy/main/setup.ps1" -UseBasicParsing | iex'
+    
+    try {
+        # Copy command to clipboard
+        Set-Clipboard -Value $restartCommand
+        Write-Success "Command copied to clipboard!"
+        
+        # Create a script block that will run in the new PowerShell window
+        $scriptBlock = @"
+Write-Host 'PowerShell started as Administrator' -ForegroundColor Green
+Write-Host 'The download command has been copied to your clipboard.' -ForegroundColor Cyan
+Write-Host 'Paste it here (Ctrl+V or Right-click -> Paste) and press Enter:' -ForegroundColor Yellow
+Write-Host ''
+Write-Host 'Command: $restartCommand' -ForegroundColor Gray
+Write-Host ''
+"@
+        
+        # Start new PowerShell as Administrator
+        $processInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $processInfo.FileName = "powershell.exe"
+        $processInfo.Arguments = "-NoExit -Command `"$scriptBlock`""
+        $processInfo.Verb = "runas"
+        $processInfo.UseShellExecute = $true
+        
+        [System.Diagnostics.Process]::Start($processInfo) | Out-Null
+        
+        Write-Host ""
+        Write-Success "New PowerShell window opened as Administrator"
+        Write-Info "You can now close this window"
+        Write-Host ""
+        Write-Host "If the new window didn't open, manually:" -ForegroundColor Yellow
+        Write-Host "1. Right-click PowerShell -> Run as Administrator" -ForegroundColor White
+        Write-Host "2. Paste this command:" -ForegroundColor White
+        Write-Host "   $restartCommand" -ForegroundColor Gray
+        Write-Host ""
+        
+    } catch {
+        Write-Error "Failed to start PowerShell as Administrator: $($_.Exception.Message)"
+        Write-Host ""
+        Write-Host "MANUAL STEPS:" -ForegroundColor Yellow
+        Write-Host "1. Right-click on PowerShell icon" -ForegroundColor White
+        Write-Host "2. Select 'Run as Administrator'" -ForegroundColor White
+        Write-Host "3. Copy and paste this command:" -ForegroundColor White
+        Write-Host "   $restartCommand" -ForegroundColor Gray
+        Write-Host ""
+    }
+    
+    Read-Host "Press Enter to exit this window"
+    exit 0
 }
 
 function Update-SessionPath {
@@ -279,15 +374,26 @@ function Install-Git {
 Write-Banner
 
 try {
-    # Administrator check
+    # Enhanced Administrator check with better options
     if (!(Test-Administrator)) {
-        Write-Warning "Script is not running as Administrator"
-        Write-Info "Administrator privileges are recommended for software installation"
-        $continue = Get-UserChoice "Do you want to continue anyway" "Y"
-        if ($continue -eq "N") { 
-            Write-Info "Setup cancelled by user"
-            exit 0 
+        $adminChoice = Get-AdminChoice
+        
+        switch ($adminChoice) {
+            "EXIT" {
+                Write-Info "Setup cancelled by user"
+                exit 0
+            }
+            "CONTINUE" {
+                Write-Warning "Continuing without Administrator privileges"
+                Write-Info "Some installations may fail or require manual intervention"
+            }
+            "ADMIN" {
+                Start-AdminPowerShell
+                # This function will exit the script
+            }
         }
+    } else {
+        Write-Success "Running with Administrator privileges"
     }
 
     # Check if Chocolatey should be used
@@ -426,7 +532,7 @@ try {
     Write-Info "Vencord Path: $VencordPath"
     Write-Host ""
 
-    # Continue with Vencord installation (rest of the original script)
+    # Continue with Vencord installation
     Write-Step "Vencord Setup"
     $vencordDir = $null
     
