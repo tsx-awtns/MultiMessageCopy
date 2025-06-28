@@ -1,6 +1,6 @@
-# MultiMessageCopy Setup Script v2.1 - GitHub Ready Version
+# MultiMessageCopy Setup Script v2.2 - GitHub Compatible
 # Author: tsx-awtns
-# Enhanced with better UI/UX, detailed information, and improved layout
+# Fixed variable syntax issues for GitHub execution
 
 param([switch]$SkipNodeInstall, [switch]$SkipGitInstall, [string]$VencordPath = "", [switch]$Help, [switch]$Verbose)
 
@@ -18,7 +18,8 @@ function Write-Highlight($Message) { Write-Host "[*] $Message" -ForegroundColor 
 function Write-Step($Message, $StepNumber = 0, $TotalSteps = 0) { 
     Write-Host ""
     if ($StepNumber -gt 0 -and $TotalSteps -gt 0) {
-        Write-Host "+-- STEP ${StepNumber}/${TotalSteps}: $Message" -ForegroundColor Magenta -BackgroundColor Black
+        $stepText = "STEP $StepNumber/$TotalSteps: $Message"
+        Write-Host "+-- $stepText" -ForegroundColor Magenta -BackgroundColor Black
     } else {
         Write-Host "+-- $Message" -ForegroundColor Magenta -BackgroundColor Black
     }
@@ -44,7 +45,7 @@ function Write-Banner {
     Write-Host "|                        COPY PLUGIN SETUP WIZARD                           |" -ForegroundColor White
     Write-Host "|                                                                            |" -ForegroundColor Cyan
     Write-Host "+============================================================================+" -ForegroundColor DarkCyan
-    Write-Host "|                    MultiMessageCopy Setup Script v2.1                     |" -ForegroundColor White
+    Write-Host "|                    MultiMessageCopy Setup Script v2.2                     |" -ForegroundColor White
     Write-Host "|                              by tsx-awtns                                  |" -ForegroundColor Gray
     Write-Host "|                                                                            |" -ForegroundColor DarkCyan
     Write-Host "|  Purpose: Automated installation of MultiMessageCopy plugin for Vencord  |" -ForegroundColor Yellow
