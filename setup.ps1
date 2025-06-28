@@ -1,85 +1,196 @@
-# MultiMessageCopy Setup Script v2.2 - GitHub Compatible
-# Author: tsx-awtns
-# Fixed variable syntax issues for GitHub execution
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║                    MultiMessageCopy Setup Script v2.0                       ║
+# ║                          Enhanced Professional Edition                       ║
+# ║                              Author: tsx-awtns                              ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
 
-param([switch]$SkipNodeInstall, [switch]$SkipGitInstall, [string]$VencordPath = "", [switch]$Help, [switch]$Verbose)
+param(
+    [switch]$SkipNodeInstall,
+    [switch]$SkipGitInstall, 
+    [string]$VencordPath = "",
+    [switch]$Help,
+    [switch]$Verbose,
+    [switch]$NoPrompts
+)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#                              CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════════
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$Host.UI.RawUI.WindowTitle = "MultiMessageCopy Setup - Enhanced Edition"
 
-# Enhanced color functions with ASCII-safe characters
-function Write-Success($Message) { Write-Host "[OK] $Message" -ForegroundColor Green }
-function Write-Warning($Message) { Write-Host "[!] $Message" -ForegroundColor Yellow }
-function Write-Error($Message) { Write-Host "[X] $Message" -ForegroundColor Red }
-function Write-Info($Message) { Write-Host "[i] $Message" -ForegroundColor Cyan }
-function Write-Debug($Message) { if ($Verbose) { Write-Host "[DEBUG] $Message" -ForegroundColor DarkGray } }
-function Write-Progress($Message) { Write-Host "[...] $Message" -ForegroundColor Magenta }
-function Write-Highlight($Message) { Write-Host "[*] $Message" -ForegroundColor Yellow -BackgroundColor DarkBlue }
+$global:ScriptVersion = "2.0"
+$global:StepCounter = 0
+$global:TotalSteps = 8
+$global:StartTime = Get-Date
 
-function Write-Step($Message, $StepNumber = 0, $TotalSteps = 0) { 
-    Write-Host ""
-    if ($StepNumber -gt 0 -and $TotalSteps -gt 0) {
-        $stepText = "STEP $StepNumber/$TotalSteps: $Message"
-        Write-Host "+-- $stepText" -ForegroundColor Magenta -BackgroundColor Black
-    } else {
-        Write-Host "+-- $Message" -ForegroundColor Magenta -BackgroundColor Black
+# ═══════════════════════════════════════════════════════════════════════════════
+#                              STYLING FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+function Write-ColoredText($Text, $Color = "White", $BackgroundColor = $null, $NoNewline = $false) {
+    $params = @{
+        Object = $Text
+        ForegroundColor = $Color
+        NoNewline = $NoNewline
     }
-    Write-Host ("|" + ("-" * 70)) -ForegroundColor DarkMagenta
+    if ($BackgroundColor) { $params.BackgroundColor = $BackgroundColor }
+    Write-Host @params
 }
 
-function Write-SubStep($Message) {
-    Write-Host "| -> $Message" -ForegroundColor Gray
+function Write-Success($Message) { 
+    Write-ColoredText "    ✓ " "Green" -NoNewline
+    Write-ColoredText "$Message" "Green"
+}
+
+function Write-Warning($Message) { 
+    Write-ColoredText "    ⚠ " "Yellow" -NoNewline
+    Write-ColoredText "$Message" "Yellow"
+}
+
+function Write-Error($Message) { 
+    Write-ColoredText "    ✗ " "Red" -NoNewline
+    Write-ColoredText "$Message" "Red"
+}
+
+function Write-Info($Message) { 
+    Write-ColoredText "    ℹ " "Cyan" -NoNewline
+    Write-ColoredText "$Message" "White"
+}
+
+function Write-Debug($Message) {
+    if ($Verbose) {
+        Write-ColoredText "    🔍 " "Magenta" -NoNewline
+        Write-ColoredText "[DEBUG] $Message" "DarkGray"
+    }
+}
+
+function Write-Progress($Activity, $Status, $PercentComplete) {
+    Write-Progress -Activity $Activity -Status $Status -PercentComplete $PercentComplete
+}
+
+function Write-StepHeader($Title, $Description = "") {
+    $global:StepCounter++
+    $progressPercent = [math]::Round(($global:StepCounter / $global:TotalSteps) * 100)
+    
+    Write-Host ""
+    Write-ColoredText "╔═══════════════════════════════════════════════════════════════════════════════╗" "DarkCyan"
+    Write-ColoredText "║" "DarkCyan" -NoNewline
+    Write-ColoredText " STEP $global:StepCounter/$global:TotalSteps: " "White" -NoNewline
+    Write-ColoredText "$Title" "Cyan" -NoNewline
+    $padding = 77 - $Title.Length - " STEP $global:StepCounter/$global:TotalSteps: ".Length
+    Write-ColoredText (" " * $padding) "White" -NoNewline
+    Write-ColoredText "║" "DarkCyan"
+    
+    if ($Description) {
+        Write-ColoredText "║" "DarkCyan" -NoNewline
+        Write-ColoredText " $Description" "Gray" -NoNewline
+        $descPadding = 77 - $Description.Length
+        Write-ColoredText (" " * $descPadding) "Gray" -NoNewline
+        Write-ColoredText "║" "DarkCyan"
+    }
+    
+    Write-ColoredText "╚═══════════════════════════════════════════════════════════════════════════════╝" "DarkCyan"
+    
+    Write-Progress -Activity "MultiMessageCopy Setup" -Status "Step $global:StepCounter/$global:TotalSteps - $Title" -PercentComplete $progressPercent
+    Write-Host ""
 }
 
 function Write-Banner {
     Clear-Host
     Write-Host ""
-    Write-Host "+============================================================================+" -ForegroundColor Cyan
-    Write-Host "|                                                                            |" -ForegroundColor Cyan
-    Write-Host "|  ███╗   ███╗██╗   ██╗██╗  ████████╗██╗███╗   ███╗███████╗███████╗███████╗ |" -ForegroundColor Cyan
-    Write-Host "|  ████╗ ████║██║   ██║██║  ╚══██╔══╝██║████╗ ████║██╔════╝██╔════╝██╔════╝ |" -ForegroundColor Cyan
-    Write-Host "|  ██╔████╔██║██║   ██║██║     ██║   ██║██╔████╔██║█████╗  ███████╗███████╗ |" -ForegroundColor Cyan
-    Write-Host "|  ██║╚██╔╝██║██║   ██║██║     ██║   ██║██║╚██╔╝██║██╔══╝  ╚════██║╚════██║ |" -ForegroundColor Cyan
-    Write-Host "|  ██║ ╚═╝ ██║╚██████╔╝███████╗██║   ██║██║ ╚═╝ ██║███████╗███████║███████║ |" -ForegroundColor Cyan
-    Write-Host "|  ╚═╝     ╚═╝ ╚═════╝ ╚══════╝╚═╝   ╚═╝╚═╝     ╚═╝╚══════╝╚══════╝╚══════╝ |" -ForegroundColor Cyan
-    Write-Host "|                                                                            |" -ForegroundColor Cyan
-    Write-Host "|                        COPY PLUGIN SETUP WIZARD                           |" -ForegroundColor White
-    Write-Host "|                                                                            |" -ForegroundColor Cyan
-    Write-Host "+============================================================================+" -ForegroundColor DarkCyan
-    Write-Host "|                    MultiMessageCopy Setup Script v2.2                     |" -ForegroundColor White
-    Write-Host "|                              by tsx-awtns                                  |" -ForegroundColor Gray
-    Write-Host "|                                                                            |" -ForegroundColor DarkCyan
-    Write-Host "|  Purpose: Automated installation of MultiMessageCopy plugin for Vencord  |" -ForegroundColor Yellow
-    Write-Host "|  Features: Node.js, Git, pnpm, Vencord, Plugin installation              |" -ForegroundColor Yellow
-    Write-Host "|  Enhanced: Better UI, detailed progress, error handling                   |" -ForegroundColor Yellow
-    Write-Host "+============================================================================+" -ForegroundColor DarkCyan
+    
+    # ASCII Art Banner
+    Write-ColoredText "    ███╗   ███╗██╗   ██╗██╗  ████████╗██╗    ███╗   ███╗███████╗███████╗███████╗ █████╗  ██████╗ ███████╗" "Cyan"
+    Write-ColoredText "    ████╗ ████║██║   ██║██║  ╚══██╔══╝██║    ████╗ ████║██╔════╝██╔════╝██╔════╝██╔══██╗██╔════╝ ██╔════╝" "Cyan"
+    Write-ColoredText "    ██╔████╔██║██║   ██║██║     ██║   ██║    ██╔████╔██║█████╗  ███████╗███████╗███████║██║  ███╗█████╗  " "Cyan"
+    Write-ColoredText "    ██║╚██╔╝██║██║   ██║██║     ██║   ██║    ██║╚██╔╝██║██╔══╝  ╚════██║╚════██║██╔══██║██║   ██║██╔══╝  " "Cyan"
+    Write-ColoredText "    ██║ ╚═╝ ██║╚██████╔╝███████╗██║   ██║    ██║ ╚═╝ ██║███████╗███████║███████║██║  ██║╚██████╔╝███████╗" "Cyan"
+    Write-ColoredText "    ╚═╝     ╚═╝ ╚═════╝ ╚══════╝╚═╝   ╚═╝    ╚═╝     ╚═╝╚══════╝╚══════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝" "Cyan"
+    Write-Host ""
+    
+    # Title Box
+    Write-ColoredText "╔══════════════════════════════════════════════════════════════════════════════════════════════════════════╗" "DarkCyan"
+    Write-ColoredText "║                                                                                                          ║" "DarkCyan"
+    Write-ColoredText "║" "DarkCyan" -NoNewline
+    Write-ColoredText "                      🚀 MULTIMESSAGECOPY SETUP WIZARD v$global:ScriptVersion 🚀                      " "White" -NoNewline
+    Write-ColoredText "║" "DarkCyan"
+    Write-ColoredText "║                                                                                                          ║" "DarkCyan"
+    Write-ColoredText "║" "DarkCyan" -NoNewline
+    Write-ColoredText "              Advanced Discord Plugin Installation & Configuration Tool              " "Gray" -NoNewline
+    Write-ColoredText "║" "DarkCyan"
+    Write-ColoredText "║                                                                                                          ║" "DarkCyan"
+    Write-ColoredText "║" "DarkCyan" -NoNewline
+    Write-ColoredText "                           Created by tsx-awtns | Enhanced Edition                           " "DarkGray" -NoNewline
+    Write-ColoredText "║" "DarkCyan"
+    Write-ColoredText "║                                                                                                          ║" "DarkCyan"
+    Write-ColoredText "╚══════════════════════════════════════════════════════════════════════════════════════════════════════════╝" "DarkCyan"
+    Write-Host ""
+    
+    # Quick Info
+    Write-ColoredText "📋 WHAT THIS SCRIPT DOES:" "Yellow"
+    Write-ColoredText "   • Installs Node.js, Git, and pnpm (if needed)" "White"
+    Write-ColoredText "   • Downloads and sets up Vencord Discord client modification" "White"
+    Write-ColoredText "   • Installs the MultiMessageCopy plugin for enhanced Discord functionality" "White"
+    Write-ColoredText "   • Builds and optionally injects Vencord into your Discord client" "White"
+    Write-Host ""
+    
+    Write-ColoredText "⚠️  IMPORTANT NOTES:" "Red"
+    Write-ColoredText "   • This modifies your Discord client - use at your own risk" "Yellow"
+    Write-ColoredText "   • Make sure Discord is closed before injection" "Yellow"
+    Write-ColoredText "   • Administrator privileges recommended for smooth installation" "Yellow"
     Write-Host ""
 }
 
 function Show-Help {
     Write-Banner
-    Write-Host "COMMAND LINE USAGE" -ForegroundColor Yellow -BackgroundColor DarkBlue
+    Write-ColoredText "╔══════════════════════════════════════════════════════════════════════════════════════════════════════════╗" "DarkCyan"
+    Write-ColoredText "║                                          USAGE GUIDE                                                   ║" "White"
+    Write-ColoredText "╚══════════════════════════════════════════════════════════════════════════════════════════════════════════╝" "DarkCyan"
     Write-Host ""
-    Write-Host "SYNTAX:" -ForegroundColor White
-    Write-Host "  .\setup.ps1 [OPTIONS]" -ForegroundColor Cyan
+    
+    Write-ColoredText "📝 BASIC USAGE:" "Green"
+    Write-ColoredText "   .\setup.ps1                    " "White" -NoNewline
+    Write-ColoredText "# Run with default settings" "Gray"
     Write-Host ""
-    Write-Host "AVAILABLE OPTIONS:" -ForegroundColor Yellow
-    Write-Host "  -SkipNodeInstall    Skip Node.js installation (if already installed)" -ForegroundColor Gray
-    Write-Host "  -SkipGitInstall     Skip Git installation (if already installed)" -ForegroundColor Gray
-    Write-Host "  -VencordPath        Specify custom Vencord installation path" -ForegroundColor Gray
-    Write-Host "  -Verbose            Enable detailed debug output" -ForegroundColor Gray
-    Write-Host "  -Help               Display this help information" -ForegroundColor Gray
+    
+    Write-ColoredText "🔧 AVAILABLE OPTIONS:" "Green"
     Write-Host ""
-    Write-Host "EXAMPLES:" -ForegroundColor Yellow
-    Write-Host "  .\setup.ps1                                    # Standard installation" -ForegroundColor White
-    Write-Host "  .\setup.ps1 -SkipNodeInstall                   # Skip Node.js if installed" -ForegroundColor White
-    Write-Host "  .\setup.ps1 -VencordPath 'C:\MyVencord'        # Custom path" -ForegroundColor White
-    Write-Host "  .\setup.ps1 -Verbose                           # Detailed output" -ForegroundColor White
+    Write-ColoredText "   -SkipNodeInstall               " "Cyan" -NoNewline
+    Write-ColoredText "Skip Node.js installation (if already installed)" "Gray"
+    Write-ColoredText "   -SkipGitInstall                " "Cyan" -NoNewline  
+    Write-ColoredText "Skip Git installation (if already installed)" "Gray"
+    Write-ColoredText "   -VencordPath <path>            " "Cyan" -NoNewline
+    Write-ColoredText "Custom installation directory for Vencord" "Gray"
+    Write-ColoredText "   -Verbose                       " "Cyan" -NoNewline
+    Write-ColoredText "Enable detailed debug output" "Gray"
+    Write-ColoredText "   -NoPrompts                     " "Cyan" -NoNewline
+    Write-ColoredText "Run in unattended mode (use defaults)" "Gray"
+    Write-ColoredText "   -Help                          " "Cyan" -NoNewline
+    Write-ColoredText "Show this help message" "Gray"
     Write-Host ""
-    Write-Host "TIP: Run as Administrator for best results!" -ForegroundColor Green
+    
+    Write-ColoredText "💡 EXAMPLES:" "Green"
+    Write-Host ""
+    Write-ColoredText "   .\setup.ps1 -VencordPath C:\MyApps\Vencord -Verbose" "Yellow"
+    Write-ColoredText "   .\setup.ps1 -SkipNodeInstall -SkipGitInstall" "Yellow"
+    Write-ColoredText "   .\setup.ps1 -NoPrompts" "Yellow"
+    Write-Host ""
+    
+    Write-ColoredText "🌐 LINKS:" "Green"
+    Write-ColoredText "   Plugin Repository: " "White" -NoNewline
+    Write-ColoredText "https://github.com/tsx-awtns/MultiMessageCopy" "Blue"
+    Write-ColoredText "   Vencord Project:   " "White" -NoNewline
+    Write-ColoredText "https://github.com/Vendicated/Vencord" "Blue"
+    Write-ColoredText "   Report Issues:     " "White" -NoNewline
+    Write-ColoredText "https://github.com/tsx-awtns/MultiMessageCopy/issues" "Blue"
     Write-Host ""
 }
 
-if ($Help) { Show-Help; exit 0 }
+# ═══════════════════════════════════════════════════════════════════════════════
+#                              UTILITY FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════
 
 function Test-Administrator {
     try {
@@ -100,597 +211,685 @@ function Test-Command($Command) {
     }
 }
 
+function Get-CommandVersion($Command) {
+    try {
+        switch ($Command.ToLower()) {
+            "node" { return (node --version) }
+            "git" { return (git --version) }
+            "npm" { return (npm --version) }
+            "pnpm" { return (pnpm --version) }
+            default { return "Unknown" }
+        }
+    } catch {
+        return "Not Found"
+    }
+}
+
 function Update-SessionPath {
-    Write-Debug "Refreshing environment PATH variables..."
+    Write-Debug "Refreshing environment variables..."
     try {
         $machinePath = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey("SYSTEM\CurrentControlSet\Control\Session Manager\Environment").GetValue("PATH", "", [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
         $userPath = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("Environment").GetValue("PATH", "", [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
         $machinePath = [System.Environment]::ExpandEnvironmentVariables($machinePath)
         $userPath = [System.Environment]::ExpandEnvironmentVariables($userPath)
         $env:PATH = $machinePath + ";" + $userPath
-        $commonPaths = @("${env:ProgramFiles}\nodejs", "${env:ProgramFiles(x86)}\nodejs", "$env:APPDATA\npm")
+        
+        $commonPaths = @(
+            "${env:ProgramFiles}\nodejs", 
+            "${env:ProgramFiles(x86)}\nodejs", 
+            "$env:APPDATA\npm",
+            "${env:ProgramFiles}\Git\bin",
+            "${env:ProgramFiles(x86)}\Git\bin"
+        )
+        
         foreach ($path in $commonPaths) {
             if ((Test-Path $path) -and ($env:PATH -notlike "*$path*")) { 
                 $env:PATH += ";$path"
                 Write-Debug "Added to PATH: $path"
             }
         }
+        Write-Debug "PATH refresh completed successfully"
     } catch {
         Write-Debug "PATH refresh failed: $($_.Exception.Message)"
     }
 }
 
-function Get-UserChoice($Prompt, $DefaultChoice = "Y", $Description = "") {
+function Get-UserChoice($Prompt, $DefaultChoice = "Y", $ValidChoices = @("Y", "N")) {
+    if ($NoPrompts) {
+        Write-Info "Auto-selecting: $DefaultChoice (NoPrompts mode)"
+        return $DefaultChoice
+    }
+    
     do {
         Write-Host ""
-        Write-Host "+-- USER INPUT REQUIRED" -ForegroundColor Yellow -BackgroundColor DarkBlue
-        Write-Host "|"
-        Write-Host "| QUESTION: $Prompt" -ForegroundColor White
-        if ($Description) {
-            Write-Host "| INFO: $Description" -ForegroundColor Gray
+        Write-ColoredText "❓ QUESTION: " "Yellow" -NoNewline
+        Write-ColoredText "$Prompt" "White"
+        
+        Write-ColoredText "   Available options: " "Gray" -NoNewline
+        for ($i = 0; $i -lt $ValidChoices.Length; $i++) {
+            if ($ValidChoices[$i] -eq $DefaultChoice) {
+                Write-ColoredText "[$($ValidChoices[$i])]" "Green" -NoNewline
+            } else {
+                Write-ColoredText " $($ValidChoices[$i]) " "White" -NoNewline
+            }
+            if ($i -lt $ValidChoices.Length - 1) { 
+                Write-ColoredText "/" "Gray" -NoNewline 
+            }
         }
-        Write-Host "|"
-        Write-Host "| OPTIONS: " -NoNewline -ForegroundColor Gray
-        if ($DefaultChoice -eq "Y") {
-            Write-Host "[Y]es" -NoNewline -ForegroundColor Green
-            Write-Host " / " -NoNewline -ForegroundColor Gray
-            Write-Host "N" -NoNewline -ForegroundColor White
-            Write-Host "o" -ForegroundColor White
-        } else {
-            Write-Host "Y" -NoNewline -ForegroundColor White
-            Write-Host "es / " -NoNewline -ForegroundColor White
-            Write-Host "[N]" -NoNewline -ForegroundColor Green
-            Write-Host "o" -ForegroundColor Green
-        }
-        Write-Host "|"
-        Write-Host "+-- Your choice (Enter for default): " -NoNewline -ForegroundColor Cyan
+        Write-Host ""
+        Write-ColoredText "   Your choice (Enter for default): " "Cyan" -NoNewline
+        
         $choice = Read-Host
         if ([string]::IsNullOrWhiteSpace($choice)) { 
             $choice = $DefaultChoice 
         }
         $choice = $choice.ToUpper()
-        if ($choice -eq "Y" -or $choice -eq "N") { 
-            Write-Host "    [OK] Selected: $choice" -ForegroundColor Green
+        
+        if ($ValidChoices -contains $choice) { 
             return $choice 
         }
-        Write-Warning "Invalid choice '$choice'. Please enter Y or N."
+        Write-Warning "Invalid choice '$choice'. Please try again."
     } while ($true)
 }
 
-function Get-UserPath($Prompt, $DefaultPath, $Description = "") {
-    Write-Host ""
-    Write-Host "+-- PATH CONFIGURATION" -ForegroundColor Yellow -BackgroundColor DarkBlue
-    Write-Host "|"
-    Write-Host "| $Prompt" -ForegroundColor White
-    if ($Description) {
-        Write-Host "| $Description" -ForegroundColor Gray
-    }
-    Write-Host "|"
-    Write-Host "| Default location:" -ForegroundColor Gray
-    Write-Host "|    $DefaultPath" -ForegroundColor Green
-    Write-Host "|"
-    Write-Host "| Example custom path:" -ForegroundColor Gray
-    Write-Host "|    C:\MyProjects\Vencord" -ForegroundColor White
-    Write-Host "|    D:\Development\Discord\Vencord" -ForegroundColor White
-    Write-Host "|"
-    Write-Host "+-- Enter custom path or press Enter for default: " -NoNewline -ForegroundColor Cyan
-    $userInput = Read-Host
-    if ([string]::IsNullOrWhiteSpace($userInput)) {
-        Write-Host "    [OK] Using default: $DefaultPath" -ForegroundColor Green
+function Get-UserPath($Prompt, $DefaultPath, $Example = "") {
+    if ($NoPrompts) {
+        Write-Info "Using default path: $DefaultPath (NoPrompts mode)"
         return $DefaultPath
     }
+    
+    Write-Host ""
+    Write-ColoredText "📁 PATH SELECTION: " "Yellow" -NoNewline
+    Write-ColoredText "$Prompt" "White"
+    Write-Host ""
+    Write-ColoredText "   Default location: " "Gray" -NoNewline
+    Write-ColoredText "$DefaultPath" "Green"
+    
+    if ($Example) {
+        Write-ColoredText "   Example:          " "Gray" -NoNewline
+        Write-ColoredText "$Example" "Yellow"
+    }
+    
+    Write-Host ""
+    Write-ColoredText "   Enter custom path or press Enter for default: " "Cyan" -NoNewline
+    $userInput = Read-Host
+    
+    if ([string]::IsNullOrWhiteSpace($userInput)) {
+        Write-Info "Using default path: $DefaultPath"
+        return $DefaultPath
+    }
+    
     $userInput = $userInput.Trim('"').Trim("'").Trim()
-    Write-Host "    [OK] Using custom: $userInput" -ForegroundColor Green
+    Write-Info "Using custom path: $userInput"
     return $userInput
 }
 
 function Show-SystemInfo {
-    Write-Step "SYSTEM INFORMATION" 1 8
-    Write-SubStep "Gathering system details..."
-    
-    $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem
-    $computerInfo = Get-CimInstance -ClassName Win32_ComputerSystem
-    
-    Write-Host "|"
-    Write-Host "| SYSTEM DETAILS:" -ForegroundColor Cyan
-    Write-Host "|    OS: $($osInfo.Caption) ($($osInfo.Version))" -ForegroundColor White
-    Write-Host "|    Computer: $($computerInfo.Name)" -ForegroundColor White
-    Write-Host "|    User: $env:USERNAME" -ForegroundColor White
-    Write-Host "|    PowerShell: $($PSVersionTable.PSVersion)" -ForegroundColor White
-    Write-Host "|    Admin Rights: $(if (Test-Administrator) { '[OK] Yes' } else { '[X] No' })" -ForegroundColor $(if (Test-Administrator) { 'Green' } else { 'Red' })
-    Write-Host "|"
-    
-    Write-Debug "System scan completed"
-}
-
-function Show-PreInstallationSummary($NodeSkip, $GitSkip, $VencordPath) {
-    Write-Host ""
-    Write-Host "+============================================================================+" -ForegroundColor Yellow
-    Write-Host "|                           INSTALLATION PLAN                               |" -ForegroundColor Yellow
-    Write-Host "+============================================================================+" -ForegroundColor DarkYellow
-    Write-Host "|                                                                            |" -ForegroundColor Yellow
-    Write-Host "|  The following components will be installed/configured:                   |" -ForegroundColor White
-    Write-Host "|                                                                            |" -ForegroundColor Yellow
-    Write-Host "|  Node.js (JavaScript Runtime)        $(if (!$NodeSkip) { '[OK] Install' } else { '[SKIP] Skip' })" -ForegroundColor $(if (!$NodeSkip) { 'Green' } else { 'Yellow' })
-    Write-Host "|  Git (Version Control)               $(if (!$GitSkip) { '[OK] Install' } else { '[SKIP] Skip' })" -ForegroundColor $(if (!$GitSkip) { 'Green' } else { 'Yellow' })
-    Write-Host "|  pnpm (Package Manager)               [OK] Install" -ForegroundColor Green
-    Write-Host "|  Vencord (Discord Client Mod)        [OK] Clone & Setup" -ForegroundColor Green
-    Write-Host "|  MultiMessageCopy Plugin             [OK] Install & Configure" -ForegroundColor Green
-    Write-Host "|                                                                            |" -ForegroundColor Yellow
-    Write-Host "|  Installation Directory:                                                  |" -ForegroundColor White
-    Write-Host "|     $VencordPath" -ForegroundColor Cyan
-    Write-Host "|                                                                            |" -ForegroundColor Yellow
-    Write-Host "+============================================================================+" -ForegroundColor DarkYellow
+    Write-ColoredText "🖥️  SYSTEM INFORMATION:" "Magenta"
+    Write-ColoredText "   OS Version:        $([System.Environment]::OSVersion.VersionString)" "Gray"
+    Write-ColoredText "   PowerShell:        $($PSVersionTable.PSVersion)" "Gray"
+    Write-ColoredText "   Architecture:      $([System.Environment]::GetEnvironmentVariable('PROCESSOR_ARCHITECTURE'))" "Gray"
+    Write-ColoredText "   User:              $([System.Environment]::UserName)" "Gray"
+    Write-ColoredText "   Admin Rights:      $(if (Test-Administrator) { 'Yes ✓' } else { 'No ✗' })" "Gray"
     Write-Host ""
 }
 
-function Show-InstallationProgress($Current, $Total, $ComponentName, $Status) {
-    $percentage = [math]::Round(($Current / $Total) * 100)
-    $progressChars = [math]::Round($percentage / 5)
-    $progressBar = "#" * $progressChars + "-" * (20 - $progressChars)
+function Show-PreInstallationSummary($NodeStatus, $GitStatus, $PnpmStatus, $VencordPath) {
+    Write-Host ""
+    Write-ColoredText "╔══════════════════════════════════════════════════════════════════════════════════════════════════════════╗" "DarkCyan"
+    Write-ColoredText "║                                    PRE-INSTALLATION SUMMARY                                             ║" "White"
+    Write-ColoredText "╚══════════════════════════════════════════════════════════════════════════════════════════════════════════╝" "DarkCyan"
+    Write-Host ""
+    
+    Write-ColoredText "📦 DEPENDENCY STATUS:" "Yellow"
+    if ($NodeStatus.Installed) { 
+        Write-Success "Node.js - Already installed ($($NodeStatus.Version))"
+    } else { 
+        Write-Warning "Node.js - Will be installed"
+    }
+    
+    if ($GitStatus.Installed) { 
+        Write-Success "Git - Already installed ($($GitStatus.Version))"
+    } else { 
+        Write-Warning "Git - Will be installed"
+    }
+    
+    if ($PnpmStatus.Installed) { 
+        Write-Success "pnpm - Already installed ($($PnpmStatus.Version))"
+    } else { 
+        Write-Warning "pnpm - Will be installed"
+    }
     
     Write-Host ""
-    Write-Host "+-- INSTALLATION PROGRESS" -ForegroundColor Magenta -BackgroundColor Black
-    Write-Host "|"
-    Write-Host "| Overall: [$progressBar] $percentage%" -ForegroundColor Cyan
-    Write-Host "| Current: $ComponentName" -ForegroundColor White
-    Write-Host "| Status: $Status" -ForegroundColor Yellow
-    Write-Host "| Step: $Current of $Total" -ForegroundColor Gray
-    Write-Host "|"
-}
-
-function Show-ComponentStatus($ComponentName, $Version = "", $Status = "Unknown", $Path = "") {
-    $statusColor = switch ($Status) {
-        "Installed" { "Green" }
-        "Available" { "Green" }
-        "Missing" { "Red" }
-        "Failed" { "Red" }
-        "Skipped" { "Yellow" }
-        default { "Gray" }
-    }
+    Write-ColoredText "📍 INSTALLATION TARGET:" "Yellow"
+    Write-Info "Vencord will be installed to: $VencordPath"
     
-    $statusIcon = switch ($Status) {
-        "Installed" { "[OK]" }
-        "Available" { "[OK]" }
-        "Missing" { "[X]" }
-        "Failed" { "[X]" }
-        "Skipped" { "[SKIP]" }
-        default { "[?]" }
-    }
-    
-    Write-Host "| $statusIcon $ComponentName" -NoNewline -ForegroundColor $statusColor
-    if ($Version) {
-        Write-Host " ($Version)" -NoNewline -ForegroundColor Gray
-    }
-    Write-Host " - $Status" -ForegroundColor $statusColor
-    if ($Path) {
-        Write-Host "|   Path: $Path" -ForegroundColor DarkGray
-    }
-}
-
-function Show-FinalSummary($Success, $VencordPath, $ComponentsInstalled) {
-    Write-Host ""
-    if ($Success) {
-        Write-Host "+============================================================================+" -ForegroundColor Green
-        Write-Host "|                            INSTALLATION COMPLETE!                         |" -ForegroundColor Green
-        Write-Host "+============================================================================+" -ForegroundColor DarkGreen
-        Write-Host "|                                                                            |" -ForegroundColor Green
-        Write-Host "|  MultiMessageCopy plugin has been successfully installed!                 |" -ForegroundColor White
-        Write-Host "|                                                                            |" -ForegroundColor Green
-        Write-Host "|  Installation Location:                                                   |" -ForegroundColor White
-        Write-Host "|     $VencordPath" -ForegroundColor Cyan
-        Write-Host "|                                                                            |" -ForegroundColor Green
-        Write-Host "|  Components Installed:                                                    |" -ForegroundColor White
-        foreach ($component in $ComponentsInstalled) {
-            Write-Host "|     [OK] $component" -ForegroundColor Green
+    $requiredSpace = 500 # MB
+    try {
+        $drive = [System.IO.Path]::GetPathRoot($VencordPath)
+        $freeSpace = [math]::Round((Get-WmiObject -Class Win32_LogicalDisk | Where-Object { $_.DeviceID -eq $drive.TrimEnd('\') }).FreeSpace / 1MB)
+        Write-Info "Available disk space: $freeSpace MB (Required: $requiredSpace MB)"
+        
+        if ($freeSpace -lt $requiredSpace) {
+            Write-Warning "Low disk space detected! Installation may fail."
         }
-        Write-Host "|                                                                            |" -ForegroundColor Green
-        Write-Host "+============================================================================+" -ForegroundColor DarkGreen
-    } else {
-        Write-Host "+============================================================================+" -ForegroundColor Red
-        Write-Host "|                            INSTALLATION FAILED                            |" -ForegroundColor Red
-        Write-Host "+============================================================================+" -ForegroundColor DarkRed
-        Write-Host "|                                                                            |" -ForegroundColor Red
-        Write-Host "|  The installation encountered errors and could not complete successfully. |" -ForegroundColor White
-        Write-Host "|  Please check the error messages above and try again.                     |" -ForegroundColor White
-        Write-Host "|                                                                            |" -ForegroundColor Red
-        Write-Host "+============================================================================+" -ForegroundColor DarkRed
+    } catch {
+        Write-Debug "Could not check disk space"
     }
     
-    Write-Host ""
-    Write-Host "NEXT STEPS:" -ForegroundColor Yellow -BackgroundColor DarkBlue
-    Write-Host ""
-    if ($Success) {
-        Write-Host "   1. Restart Discord completely (close all Discord processes)" -ForegroundColor White
-        Write-Host "   2. Open Discord Settings (gear icon)" -ForegroundColor White
-        Write-Host "   3. Navigate to: Vencord -> Plugins" -ForegroundColor White
-        Write-Host "   4. Find 'MultiMessageCopy' in the plugin list" -ForegroundColor White
-        Write-Host "   5. Toggle the plugin ON (enable it)" -ForegroundColor White
-        Write-Host "   6. Start using the multi-message copy features!" -ForegroundColor White
-        Write-Host ""
-        Write-Host "PLUGIN FEATURES:" -ForegroundColor Cyan
-        Write-Host "   • Copy multiple messages at once" -ForegroundColor Gray
-        Write-Host "   • Batch message operations" -ForegroundColor Gray
-        Write-Host "   • Enhanced clipboard functionality" -ForegroundColor Gray
-    } else {
-        Write-Host "   1. Check the error messages above" -ForegroundColor White
-        Write-Host "   2. Ensure you have internet connection" -ForegroundColor White
-        Write-Host "   3. Try running as Administrator" -ForegroundColor White
-        Write-Host "   4. Restart PowerShell and try again" -ForegroundColor White
-    }
-    
-    Write-Host ""
-    Write-Host "USEFUL LINKS:" -ForegroundColor Cyan
-    Write-Host "   Plugin Repository: https://github.com/tsx-awtns/MultiMessageCopy" -ForegroundColor Blue
-    Write-Host "   Report Issues: https://github.com/tsx-awtns/MultiMessageCopy/issues" -ForegroundColor Blue
-    Write-Host "   Vencord Documentation: https://docs.vencord.dev/" -ForegroundColor Blue
-    Write-Host ""
-    Write-Host "Thank you for using MultiMessageCopy! Enjoy your enhanced Discord experience!" -ForegroundColor Green
     Write-Host ""
 }
 
-# Main execution starts here
-Write-Banner
+function Show-InstallationProgress($Activity, $Status, $Percent) {
+    Write-Progress -Activity $Activity -Status $Status -PercentComplete $Percent
+    Write-ColoredText "    ⏳ " "Yellow" -NoNewline
+    Write-ColoredText "$Status" "White"
+}
 
-$componentsInstalled = @()
-$totalSteps = 8
+function Show-CompletionSummary($VencordPath, $ElapsedTime, $InjectionCompleted) {
+    Write-Host ""
+    Write-ColoredText "╔══════════════════════════════════════════════════════════════════════════════════════════════════════════╗" "Green"
+    Write-ColoredText "║                                    🎉 INSTALLATION COMPLETE! 🎉                                       ║" "White"
+    Write-ColoredText "╚══════════════════════════════════════════════════════════════════════════════════════════════════════════╝" "Green"
+    Write-Host ""
+    
+    Write-ColoredText "✅ SUCCESS SUMMARY:" "Green"
+    Write-Success "MultiMessageCopy plugin has been installed successfully"
+    Write-Success "Vencord has been built with the plugin integrated"
+    if ($InjectionCompleted) {
+        Write-Success "Vencord has been injected into Discord"
+    } else {
+        Write-Warning "Vencord injection was skipped - you can inject manually later"
+    }
+    
+    Write-Host ""
+    Write-ColoredText "📊 STATISTICS:" "Cyan"
+    Write-Info "Installation completed in: $ElapsedTime"
+    Write-Info "Installation location: $VencordPath"
+    Write-Info "Plugin files: $(Join-Path $VencordPath 'src\userplugins\MultiMessageCopy')"
+    
+    Write-Host ""
+    Write-ColoredText "🚀 NEXT STEPS - IMPORTANT!" "Yellow"
+    Write-ColoredText "   1. " "White" -NoNewline
+    Write-ColoredText "RESTART DISCORD COMPLETELY" "Red"
+    Write-ColoredText "      • Close Discord from system tray" "Gray"
+    Write-ColoredText "      • Wait 5 seconds, then reopen Discord" "Gray"
+    Write-Host ""
+    Write-ColoredText "   2. " "White" -NoNewline
+    Write-ColoredText "ENABLE THE PLUGIN" "Yellow"
+    Write-ColoredText "      • Go to: Settings → Vencord → Plugins" "Gray"
+    Write-ColoredText "      • Find 'MultiMessageCopy' in the list" "Gray"
+    Write-ColoredText "      • Toggle it ON (green switch)" "Gray"
+    Write-Host ""
+    Write-ColoredText "   3. " "White" -NoNewline
+    Write-ColoredText "START USING THE PLUGIN" "Green"
+    Write-ColoredText "      • Select multiple messages in any Discord channel" "Gray"
+    Write-ColoredText "      • Right-click and look for copy options" "Gray"
+    Write-ColoredText "      • Enjoy enhanced message copying features!" "Gray"
+    
+    Write-Host ""
+    Write-ColoredText "🔗 USEFUL LINKS:" "Cyan"
+    Write-ColoredText "   📚 Plugin Documentation: " "White" -NoNewline
+    Write-ColoredText "https://github.com/tsx-awtns/MultiMessageCopy" "Blue"
+    Write-ColoredText "   🐛 Report Issues:         " "White" -NoNewline
+    Write-ColoredText "https://github.com/tsx-awtns/MultiMessageCopy/issues" "Blue"
+    Write-ColoredText "   💬 Discord Support:       " "White" -NoNewline
+    Write-ColoredText "https://discord.gg/vencord" "Blue"
+    
+    if (!$InjectionCompleted) {
+        Write-Host ""
+        Write-ColoredText "⚙️  MANUAL INJECTION (if needed):" "Yellow"
+        Write-ColoredText "   If Discord doesn't show Vencord settings:" "Gray"
+        Write-ColoredText "   1. Open PowerShell as Administrator" "Gray"
+        Write-ColoredText "   2. Navigate to: $VencordPath" "Gray"
+        Write-ColoredText "   3. Run: pnpm inject" "Gray"
+    }
+    
+    Write-Host ""
+    Write-ColoredText "Thank you for using MultiMessageCopy! 🙏" "Green"
+    Write-Host ""
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#                              MAIN EXECUTION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+if ($Help) { 
+    Show-Help
+    exit 0 
+}
+
+Write-Banner
+Show-SystemInfo
 
 try {
-    # Step 1: System Information
-    Show-SystemInfo
+    # ═══════════════════════════════════════════════════════════════════════════
+    #                              STEP 1: PREREQUISITES CHECK
+    # ═══════════════════════════════════════════════════════════════════════════
     
-    # Step 2: Administrator check
-    Write-Step "PRIVILEGE CHECK" 2 $totalSteps
+    Write-StepHeader "Prerequisites Check" "Verifying system requirements and permissions"
+    
     if (!(Test-Administrator)) {
         Write-Warning "Script is not running with Administrator privileges"
-        Write-SubStep "Some installations might require elevated permissions"
-        Write-SubStep "You can continue, but some features might fail"
-        $continue = Get-UserChoice "Do you want to continue anyway?" "Y" "Recommended: Restart as Administrator for best results"
+        Write-Info "Some installations might require elevated permissions"
+        Write-Info "Consider running PowerShell as Administrator for best results"
+        
+        $continue = Get-UserChoice "Do you want to continue anyway?" "Y" @("Y", "N")
         if ($continue -eq "N") { 
-            Write-Info "Setup cancelled by user. Restart as Administrator and try again."
+            Write-Info "Setup cancelled by user. Restart as Administrator for optimal experience."
             exit 0 
         }
     } else {
         Write-Success "Running with Administrator privileges"
-        Write-SubStep "All installation features will be available"
+    }
+    
+    Write-Info "Checking PowerShell execution policy..."
+    $executionPolicy = Get-ExecutionPolicy
+    Write-Debug "Current execution policy: $executionPolicy"
+    
+    if ($executionPolicy -eq "Restricted") {
+        Write-Warning "PowerShell execution policy is restricted"
+        Write-Info "You may need to run: Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser"
+    } else {
+        Write-Success "PowerShell execution policy allows script execution"
     }
 
-    # Step 3: Get installation preferences
-    Write-Step "CONFIGURATION" 3 $totalSteps
+    # ═══════════════════════════════════════════════════════════════════════════
+    #                              STEP 2: DEPENDENCY ANALYSIS
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    Write-StepHeader "Dependency Analysis" "Scanning for required tools and versions"
+    
+    Write-Info "Scanning system for existing installations..."
+    Update-SessionPath
+    
+    # Check Node.js
+    $nodeStatus = @{
+        Installed = Test-Command "node"
+        Version = if (Test-Command "node") { Get-CommandVersion "node" } else { "Not Installed" }
+        Required = !$SkipNodeInstall
+    }
+    
+    # Check Git  
+    $gitStatus = @{
+        Installed = Test-Command "git"
+        Version = if (Test-Command "git") { Get-CommandVersion "git" } else { "Not Installed" }
+        Required = !$SkipGitInstall
+    }
+    
+    # Check pnpm
+    $pnpmStatus = @{
+        Installed = Test-Command "pnpm"
+        Version = if (Test-Command "pnpm") { Get-CommandVersion "pnpm" } else { "Not Installed" }
+        Required = $true
+    }
+    
+    # Get installation path
     if ([string]::IsNullOrEmpty($VencordPath)) {
         $defaultPath = Join-Path $env:USERPROFILE "Desktop\Vencord"
-        $VencordPath = Get-UserPath "Where should Vencord be installed?" $defaultPath "This will be the main directory for Vencord and the plugin"
+        $VencordPath = Get-UserPath "Where should Vencord be installed?" $defaultPath "C:\MyPrograms\Vencord"
     }
     
-    Show-PreInstallationSummary $SkipNodeInstall $SkipGitInstall $VencordPath
+    Show-PreInstallationSummary $nodeStatus $gitStatus $pnpmStatus $VencordPath
     
-    $proceed = Get-UserChoice "Proceed with installation?" "Y" "This will download and install the required components"
-    if ($proceed -eq "N") {
-        Write-Info "Installation cancelled by user"
-        exit 0
+    if (!$NoPrompts) {
+        $proceed = Get-UserChoice "Proceed with installation?" "Y" @("Y", "N")
+        if ($proceed -eq "N") {
+            Write-Info "Installation cancelled by user"
+            exit 0
+        }
     }
 
-    # Step 4: Node.js Installation
-    Show-InstallationProgress 4 $totalSteps "Node.js" "Checking and installing..."
-    Write-Step "NODE.JS SETUP" 4 $totalSteps
+    # ═══════════════════════════════════════════════════════════════════════════
+    #                              STEP 3: NODE.JS INSTALLATION
+    # ═══════════════════════════════════════════════════════════════════════════
+    
     $nodeInstalled = $false
     if (!$SkipNodeInstall) {
-        Write-SubStep "Refreshing environment variables..."
+        Write-StepHeader "Node.js Installation" "Installing JavaScript runtime environment"
+        
         Update-SessionPath
         
-        if (Test-Command "node") {
-            $version = node --version
-            Write-Success "Node.js is already installed: $version"
-            Show-ComponentStatus "Node.js" $version "Available"
+        if ($nodeStatus.Installed) {
+            Write-Success "Node.js is already installed: $($nodeStatus.Version)"
             $nodeInstalled = $true
-            $componentsInstalled += "Node.js $version"
         } else {
-            Write-Progress "Downloading and installing Node.js..."
-            Write-SubStep "This may take a few minutes depending on your internet connection"
+            Write-Info "Downloading and installing Node.js LTS version..."
             $nodeUrl = "https://nodejs.org/dist/v20.10.0/node-v20.10.0-x64.msi"
             $nodeInstaller = "$env:TEMP\nodejs-installer.msi"
+            
             try {
-                Write-SubStep "Downloading Node.js installer..."
+                Show-InstallationProgress "Node.js Installation" "Downloading installer..." 20
                 Invoke-WebRequest -Uri $nodeUrl -OutFile $nodeInstaller -UseBasicParsing
-                Write-SubStep "Running Node.js installer (silent mode)..."
+                
+                Show-InstallationProgress "Node.js Installation" "Installing Node.js..." 60
                 $process = Start-Process -FilePath "msiexec.exe" -ArgumentList "/i", "`"$nodeInstaller`"", "/quiet", "/norestart" -Wait -PassThru
+                
                 if ($process.ExitCode -eq 0) {
-                    Write-SubStep "Installation completed, refreshing environment..."
+                    Show-InstallationProgress "Node.js Installation" "Verifying installation..." 90
                     Start-Sleep -Seconds 3
                     Update-SessionPath
+                    
                     if (Test-Command "node") {
-                        $version = node --version
+                        $version = Get-CommandVersion "node"
                         Write-Success "Node.js installed successfully: $version"
-                        Show-ComponentStatus "Node.js" $version "Installed"
                         $nodeInstalled = $true
-                        $componentsInstalled += "Node.js $version"
+                    } else {
+                        Write-Error "Node.js installation completed but command not found in PATH"
                     }
+                } else {
+                    Write-Error "Node.js installer returned error code: $($process.ExitCode)"
                 }
+                
                 Remove-Item $nodeInstaller -Force -ErrorAction SilentlyContinue
             } catch {
                 Write-Error "Node.js installation failed: $($_.Exception.Message)"
-                Show-ComponentStatus "Node.js" "" "Failed"
                 Remove-Item $nodeInstaller -Force -ErrorAction SilentlyContinue
             }
         }
         
         if (!$nodeInstalled) {
             Write-Error "Node.js is required for this installation"
-            Write-SubStep "Please install Node.js manually from https://nodejs.org/ and restart PowerShell"
+            Write-Info "Please install Node.js manually from: https://nodejs.org/"
+            Write-Info "Then restart PowerShell and run this script again"
             Read-Host "Press Enter to exit"
             exit 1
         }
     } else {
         $nodeInstalled = Test-Command "node"
-        if ($nodeInstalled) {
-            $version = node --version
-            Show-ComponentStatus "Node.js" $version "Skipped"
-        } else {
-            Show-ComponentStatus "Node.js" "" "Missing"
-        }
+        Write-Info "Node.js installation skipped (SkipNodeInstall flag)"
     }
 
-    # Step 5: Git Installation
-    Show-InstallationProgress 5 $totalSteps "Git" "Checking and installing..."
-    Write-Step "GIT SETUP" 5 $totalSteps
+    # ═══════════════════════════════════════════════════════════════════════════
+    #                              STEP 4: GIT INSTALLATION
+    # ═══════════════════════════════════════════════════════════════════════════
+    
     $gitInstalled = $false
     if (!$SkipGitInstall) {
-        Write-SubStep "Refreshing environment variables..."
+        Write-StepHeader "Git Installation" "Installing version control system"
+        
         Update-SessionPath
         
-        if (Test-Command "git") {
-            $version = git --version
-            Write-Success "Git is already installed: $version"
-            Show-ComponentStatus "Git" $version "Available"
+        if ($gitStatus.Installed) {
+            Write-Success "Git is already installed: $($gitStatus.Version)"
             $gitInstalled = $true
-            $componentsInstalled += "Git"
         } else {
-            Write-Progress "Downloading and installing Git..."
-            Write-SubStep "Installing Git for Windows with optimal settings"
+            Write-Info "Downloading and installing Git for Windows..."
             $gitUrl = "https://github.com/git-for-windows/git/releases/download/v2.42.0.windows.2/Git-2.42.0.2-64-bit.exe"
             $gitInstaller = "$env:TEMP\git-installer.exe"
+            
             try {
-                Write-SubStep "Downloading Git installer..."
+                Show-InstallationProgress "Git Installation" "Downloading installer..." 20
                 Invoke-WebRequest -Uri $gitUrl -OutFile $gitInstaller -UseBasicParsing
-                Write-SubStep "Running Git installer (silent mode)..."
+                
+                Show-InstallationProgress "Git Installation" "Installing Git..." 60
                 Start-Process -FilePath $gitInstaller -ArgumentList "/VERYSILENT", "/NORESTART" -Wait
-                Write-SubStep "Installation completed, refreshing environment..."
+                
+                Show-InstallationProgress "Git Installation" "Verifying installation..." 90
                 Update-SessionPath
+                
                 if (Test-Command "git") {
-                    $version = git --version
+                    $version = Get-CommandVersion "git"
                     Write-Success "Git installed successfully: $version"
-                    Show-ComponentStatus "Git" $version "Installed"
                     $gitInstalled = $true
-                    $componentsInstalled += "Git"
+                } else {
+                    Write-Warning "Git installation completed but command not found in PATH"
+                    Write-Info "You may need to restart PowerShell for Git to be available"
                 }
+                
                 Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
             } catch {
                 Write-Warning "Git installation failed: $($_.Exception.Message)"
-                Show-ComponentStatus "Git" "" "Failed"
+                Write-Info "Git is recommended but not strictly required"
                 Remove-Item $gitInstaller -Force -ErrorAction SilentlyContinue
             }
         }
     } else {
         $gitInstalled = Test-Command "git"
-        if ($gitInstalled) {
-            $version = git --version
-            Show-ComponentStatus "Git" $version "Skipped"
-        } else {
-            Show-ComponentStatus "Git" "" "Missing"
-        }
+        Write-Info "Git installation skipped (SkipGitInstall flag)"
     }
 
-    # Step 6: pnpm Installation
-    Show-InstallationProgress 6 $totalSteps "pnpm" "Installing package manager..."
-    Write-Step "PNPM SETUP" 6 $totalSteps
-    Write-SubStep "pnpm is a fast, disk space efficient package manager"
+    # ═══════════════════════════════════════════════════════════════════════════
+    #                              STEP 5: PNPM INSTALLATION
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    Write-StepHeader "Package Manager Setup" "Installing pnpm package manager"
+    
     Update-SessionPath
     
     $pnpmInstalled = $false
-    if (Test-Command "pnpm") {
-        $version = pnpm --version
-        Write-Success "pnpm is already installed: $version"
-        Show-ComponentStatus "pnpm" $version "Available"
+    if ($pnpmStatus.Installed) {
+        Write-Success "pnpm is already installed: $($pnpmStatus.Version)"
         $pnpmInstalled = $true
-        $componentsInstalled += "pnpm $version"
     } else {
         if (Test-Command "npm") {
-            Write-Progress "Installing pnpm via npm..."
-            Write-SubStep "This will install pnpm globally using npm"
+            Write-Info "Installing pnpm via npm..."
             try {
+                Show-InstallationProgress "pnpm Installation" "Installing pnpm globally..." 50
                 $npmProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "npm", "install", "-g", "pnpm" -Wait -PassThru -NoNewWindow
+                
                 if ($npmProcess.ExitCode -eq 0) {
-                    Write-SubStep "Installation completed, refreshing environment..."
+                    Show-InstallationProgress "pnpm Installation" "Verifying installation..." 90
                     Update-SessionPath
                     Start-Sleep -Seconds 2
+                    
                     if (Test-Command "pnpm") {
-                        $version = pnpm --version
+                        $version = Get-CommandVersion "pnpm"
                         Write-Success "pnpm installed successfully: $version"
-                        Show-ComponentStatus "pnpm" $version "Installed"
                         $pnpmInstalled = $true
-                        $componentsInstalled += "pnpm $version"
+                    } else {
+                        Write-Error "pnpm installation completed but command not found"
                     }
+                } else {
+                    Write-Error "npm returned error code: $($npmProcess.ExitCode)"
                 }
             } catch {
                 Write-Error "pnpm installation failed: $($_.Exception.Message)"
-                Show-ComponentStatus "pnpm" "" "Failed"
             }
         } else {
-            Write-Error "npm is not available (Node.js installation may have failed)"
-            Show-ComponentStatus "pnpm" "" "Failed"
+            Write-Error "npm is not available - Node.js installation may have failed"
         }
     }
     
     if (!$pnpmInstalled) {
-        Write-Error "pnpm is required for Vencord development"
-        Write-SubStep "Please restart PowerShell and try again, or install pnpm manually"
+        Write-Error "pnpm is required for building Vencord"
+        Write-Info "Please restart PowerShell and try again"
         Read-Host "Press Enter to exit"
         exit 1
     }
 
-    # Step 7: Vencord Installation
-    Show-InstallationProgress 7 $totalSteps "Vencord" "Cloning and setting up..."
-    Write-Step "VENCORD SETUP" 7 $totalSteps
-    Write-SubStep "Vencord is a Discord client modification with plugin support"
+    # ═══════════════════════════════════════════════════════════════════════════
+    #                              STEP 6: VENCORD SETUP
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    Write-StepHeader "Vencord Repository Setup" "Cloning and preparing Vencord source code"
+    
     $vencordDir = $null
     try {
         if (Test-Path "$VencordPath\package.json") {
             $packageContent = Get-Content "$VencordPath\package.json" -Raw | ConvertFrom-Json
             if ($packageContent.name -eq "vencord") {
-                Write-Success "Found existing Vencord installation"
-                Show-ComponentStatus "Vencord" $packageContent.version "Available" $VencordPath
+                Write-Success "Found existing Vencord installation at: $VencordPath"
                 $vencordDir = $VencordPath
-                $componentsInstalled += "Vencord (existing)"
             }
         }
         
         if (!$vencordDir) {
-            Write-Progress "Cloning Vencord repository from GitHub..."
-            Write-SubStep "This will download the latest Vencord source code"
+            Write-Info "Cloning Vencord repository from GitHub..."
             $parentDir = Split-Path $VencordPath -Parent
+            
+            Show-InstallationProgress "Vencord Setup" "Preparing directories..." 20
             if (!(Test-Path $parentDir)) { 
-                Write-SubStep "Creating parent directory: $parentDir"
                 New-Item -ItemType Directory -Path $parentDir -Force | Out-Null 
+                Write-Debug "Created parent directory: $parentDir"
             }
+            
             if (Test-Path $VencordPath) { 
-                Write-SubStep "Removing existing directory: $VencordPath"
+                Write-Warning "Existing directory found - removing: $VencordPath"
                 Remove-Item $VencordPath -Recurse -Force 
             }
             
-            Write-SubStep "Cloning repository (this may take a few minutes)..."
+            Show-InstallationProgress "Vencord Setup" "Cloning repository (this may take a moment)..." 60
             $currentLocation = Get-Location
             Set-Location $parentDir
             $targetDirName = Split-Path $VencordPath -Leaf
+            
+            Write-Debug "Cloning to: $targetDirName"
             git clone https://github.com/Vendicated/Vencord.git $targetDirName
             Set-Location $currentLocation
             
+            Show-InstallationProgress "Vencord Setup" "Verifying installation..." 90
             if (Test-Path "$VencordPath\package.json") {
-                Write-Success "Vencord cloned successfully"
-                Show-ComponentStatus "Vencord" "latest" "Installed" $VencordPath
+                Write-Success "Vencord repository cloned successfully"
                 $vencordDir = $VencordPath
-                $componentsInstalled += "Vencord (cloned)"
+            } else {
+                throw "Repository clone failed - package.json not found"
             }
         }
     } catch {
         Write-Error "Vencord setup failed: $($_.Exception.Message)"
-        Show-ComponentStatus "Vencord" "" "Failed"
+        Write-Info "Please check your internet connection and Git installation"
     }
     
     if (!$vencordDir) {
-        Write-Error "Cannot continue without Vencord"
-        Write-SubStep "Please check your internet connection and Git installation"
+        Write-Error "Cannot continue without Vencord source code"
         Read-Host "Press Enter to exit"
         exit 1
     }
 
-    # Install dependencies
-    Write-SubStep "Installing Vencord dependencies..."
-    Write-Progress "This may take several minutes depending on your internet speed"
-    try {
-        $currentLocation = Get-Location
-        Set-Location $vencordDir
-        Write-SubStep "Running 'pnpm install' in Vencord directory..."
-        pnpm install
-        Set-Location $currentLocation
-        Write-Success "Vencord dependencies installed successfully"
-        $componentsInstalled += "Vencord Dependencies"
-    } catch {
-        Write-Error "Dependencies installation failed: $($_.Exception.Message)"
-        Write-SubStep "You may need to run 'pnpm install' manually in the Vencord directory"
-        Read-Host "Press Enter to exit"
-        exit 1
-    }
-
-    # Step 8: Plugin Installation
-    Show-InstallationProgress 8 $totalSteps "MultiMessageCopy Plugin" "Installing plugin..."
-    Write-Step "PLUGIN INSTALLATION" 8 $totalSteps
-    Write-SubStep "Installing MultiMessageCopy plugin into Vencord"
+    # ═══════════════════════════════════════════════════════════════════════════
+    #                              STEP 7: PLUGIN INSTALLATION
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    Write-StepHeader "Plugin Installation" "Installing MultiMessageCopy plugin"
+    
     try {
         $userPluginsPath = Join-Path $vencordDir "src\userplugins"
         $pluginPath = Join-Path $userPluginsPath "MultiMessageCopy"
         
-        Write-SubStep "Preparing plugin directory structure..."
+        Show-InstallationProgress "Plugin Installation" "Preparing plugin directory..." 20
         if (!(Test-Path $userPluginsPath)) { 
             New-Item -ItemType Directory -Path $userPluginsPath -Force | Out-Null 
-            Write-Debug "Created userplugins directory"
+            Write-Info "Created userplugins directory"
         }
+        
         if (Test-Path $pluginPath) { 
-            Write-SubStep "Removing existing plugin installation..."
+            Write-Info "Removing existing MultiMessageCopy installation..."
             Remove-Item $pluginPath -Recurse -Force 
         }
         
-        Write-Progress "Downloading MultiMessageCopy plugin from GitHub..."
-        Write-SubStep "Cloning plugin repository..."
+        Show-InstallationProgress "Plugin Installation" "Downloading plugin from GitHub..." 50
+        Write-Info "Cloning MultiMessageCopy plugin repository..."
+        
         $currentLocation = Get-Location
         Set-Location $userPluginsPath
+        
+        Write-Debug "Cloning plugin repository..."
         git clone https://github.com/tsx-awtns/MultiMessageCopy.git temp-plugin
         
-        Write-SubStep "Installing plugin files..."
+        Show-InstallationProgress "Plugin Installation" "Installing plugin files..." 80
         if (Test-Path "temp-plugin\MultiMessageCopyFiles") {
             Move-Item "temp-plugin\MultiMessageCopyFiles" "MultiMessageCopy"
             Remove-Item "temp-plugin" -Recurse -Force
             Write-Success "MultiMessageCopy plugin installed successfully"
-            Show-ComponentStatus "MultiMessageCopy Plugin" "latest" "Installed" $pluginPath
-            $componentsInstalled += "MultiMessageCopy Plugin"
+            Write-Info "Plugin location: $pluginPath"
         } else {
-            throw "MultiMessageCopyFiles folder not found in repository"
+            throw "Plugin files not found in repository (MultiMessageCopyFiles folder missing)"
         }
+        
         Set-Location $currentLocation
     } catch {
         Write-Error "Plugin installation failed: $($_.Exception.Message)"
-        Write-SubStep "You can try cloning manually: https://github.com/tsx-awtns/MultiMessageCopy.git"
-        Show-ComponentStatus "MultiMessageCopy Plugin" "" "Failed"
+        Write-Info "You can try cloning manually: https://github.com/tsx-awtns/MultiMessageCopy.git"
         Read-Host "Press Enter to exit"
         exit 1
     }
 
-    # Build Vencord
-    Write-Progress "Building Vencord with MultiMessageCopy plugin..."
-    Write-SubStep "This compiles Vencord with all plugins including MultiMessageCopy"
+    # ═══════════════════════════════════════════════════════════════════════════
+    #                              STEP 8: BUILD AND FINALIZATION
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    Write-StepHeader "Build Process" "Building Vencord with MultiMessageCopy plugin"
+    
     try {
         $currentLocation = Get-Location
         Set-Location $vencordDir
-        Write-SubStep "Running 'pnpm build' (this may take a few minutes)..."
+        
+        Write-Info "Installing Vencord dependencies (this may take several minutes)..."
+        Show-InstallationProgress "Build Process" "Installing dependencies..." 20
+        pnpm install
+        
+        Write-Info "Building Vencord with integrated MultiMessageCopy plugin..."
+        Show-InstallationProgress "Build Process" "Compiling project..." 70
         pnpm build
+        
         Set-Location $currentLocation
-        Write-Success "Vencord built successfully with MultiMessageCopy plugin"
-        $componentsInstalled += "Vencord Build"
+        Write-Success "Vencord build completed successfully"
     } catch {
-        Write-Error "Build failed: $($_.Exception.Message)"
-        Write-SubStep "You may need to run 'pnpm build' manually in the Vencord directory"
+        Write-Error "Build process failed: $($_.Exception.Message)"
+        Write-Info "Check the error messages above for more details"
         Read-Host "Press Enter to exit"
         exit 1
     }
-
-    # Ask about injection
-    $inject = Get-UserChoice "Do you want to inject Vencord into Discord now?" "Y" "This will modify your Discord installation to use Vencord"
+    
+    # Discord injection
+    $injectionCompleted = $false
+    $inject = Get-UserChoice "Do you want to inject Vencord into Discord now?" "Y" @("Y", "N")
+    
     if ($inject -eq "Y") {
-        Write-Progress "Injecting Vencord into Discord..."
-        Write-SubStep "This modifies Discord to load Vencord on startup"
+        Write-Info "Injecting Vencord into Discord..."
+        Write-Warning "Make sure Discord is completely closed before proceeding!"
+        
         try {
             $currentLocation = Get-Location
             Set-Location $vencordDir
-            Write-SubStep "Running 'pnpm inject'..."
+            
+            Show-InstallationProgress "Discord Integration" "Injecting Vencord..." 50
             pnpm inject
+            
             Set-Location $currentLocation
             Write-Success "Vencord injection completed successfully"
-            $componentsInstalled += "Discord Injection"
+            $injectionCompleted = $true
         } catch {
             Write-Warning "Injection failed: $($_.Exception.Message)"
-            Write-SubStep "You can run 'pnpm inject' manually in the Vencord directory later"
+            Write-Info "You can inject manually later by running 'pnpm inject' in: $vencordDir"
         }
     } else {
-        Write-Info "Injection skipped - you can run 'pnpm inject' manually later"
+        Write-Info "Vencord injection skipped - you can inject manually later"
     }
 
-    # Show final summary
-    Show-FinalSummary $true $vencordDir $componentsInstalled
+    # ═══════════════════════════════════════════════════════════════════════════
+    #                              COMPLETION
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    $endTime = Get-Date
+    $elapsedTime = $endTime - $global:StartTime
+    $formattedTime = "{0:mm\:ss}" -f $elapsedTime
+    
+    Show-CompletionSummary $vencordDir $formattedTime $injectionCompleted
+    
     Read-Host "Press Enter to exit"
 
 } catch {
-    Write-Error "Setup failed with unexpected error: $($_.Exception.Message)"
-    Write-Debug "Full error details: $($_.Exception)"
-    Show-FinalSummary $false "" @()
+    Write-Host ""
+    Write-ColoredText "╔══════════════════════════════════════════════════════════════════════════════════════════════════════════╗" "Red"
+    Write-ColoredText "║                                    ❌ INSTALLATION FAILED ❌                                            ║" "White"
+    Write-ColoredText "╚══════════════════════════════════════════════════════════════════════════════════════════════════════════╝" "Red"
+    Write-Host ""
+    
+    Write-Error "Setup failed with error: $($_.Exception.Message)"
+    Write-Host ""
+    Write-ColoredText "🔍 TROUBLESHOOTING TIPS:" "Yellow"
+    Write-ColoredText "   • Make sure you have a stable internet connection" "Gray"
+    Write-ColoredText "   • Try running PowerShell as Administrator" "Gray"
+    Write-ColoredText "   • Ensure Discord is completely closed" "Gray"
+    Write-ColoredText "   • Check Windows Defender/Antivirus isn't blocking the installation" "Gray"
+    Write-ColoredText "   • Verify you have enough disk space" "Gray"
+    Write-Host ""
+    Write-ColoredText "📞 GET HELP:" "Cyan"
+    Write-ColoredText "   Report issues: https://github.com/tsx-awtns/MultiMessageCopy/issues" "Blue"
+    Write-Host ""
+    
     Read-Host "Press Enter to exit"
     exit 1
 }
