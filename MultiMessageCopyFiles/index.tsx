@@ -878,8 +878,8 @@ export default definePlugin({
   description: "Enhanced Discord message selection and copying with beautiful UI/UX",
   authors: [
     {
-      name: "dewushka.0",
-      id: 1053088103256035419n,
+      name: "axolotle024",
+      id: 1387840011155542068n,
     },
   ],
 
