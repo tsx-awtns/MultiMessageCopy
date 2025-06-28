@@ -1,4 +1,4 @@
-# MultiMessageCopy Setup Script v2.0 - Enhanced Pro Version
+# MultiMessageCopy Setup Script v2.1 - GitHub Ready Version
 # Author: tsx-awtns
 # Enhanced with better UI/UX, detailed information, and improved layout
 
@@ -6,57 +6,57 @@ param([switch]$SkipNodeInstall, [switch]$SkipGitInstall, [string]$VencordPath = 
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-# Enhanced color functions with more variety
-function Write-Success($Message) { Write-Host "✓ $Message" -ForegroundColor Green }
-function Write-Warning($Message) { Write-Host "⚠ $Message" -ForegroundColor Yellow }
-function Write-Error($Message) { Write-Host "✗ $Message" -ForegroundColor Red }
-function Write-Info($Message) { Write-Host "ℹ $Message" -ForegroundColor Cyan }
-function Write-Debug($Message) { if ($Verbose) { Write-Host "🔍 $Message" -ForegroundColor DarkGray } }
-function Write-Progress($Message) { Write-Host "⏳ $Message" -ForegroundColor Magenta }
-function Write-Highlight($Message) { Write-Host "★ $Message" -ForegroundColor Yellow -BackgroundColor DarkBlue }
+# Enhanced color functions with ASCII-safe characters
+function Write-Success($Message) { Write-Host "[OK] $Message" -ForegroundColor Green }
+function Write-Warning($Message) { Write-Host "[!] $Message" -ForegroundColor Yellow }
+function Write-Error($Message) { Write-Host "[X] $Message" -ForegroundColor Red }
+function Write-Info($Message) { Write-Host "[i] $Message" -ForegroundColor Cyan }
+function Write-Debug($Message) { if ($Verbose) { Write-Host "[DEBUG] $Message" -ForegroundColor DarkGray } }
+function Write-Progress($Message) { Write-Host "[...] $Message" -ForegroundColor Magenta }
+function Write-Highlight($Message) { Write-Host "[*] $Message" -ForegroundColor Yellow -BackgroundColor DarkBlue }
 
 function Write-Step($Message, $StepNumber = 0, $TotalSteps = 0) { 
     Write-Host ""
     if ($StepNumber -gt 0 -and $TotalSteps -gt 0) {
-        Write-Host "┌─ STEP $StepNumber/$TotalSteps: $Message" -ForegroundColor Magenta -BackgroundColor Black
+        Write-Host "+-- STEP ${StepNumber}/${TotalSteps}: $Message" -ForegroundColor Magenta -BackgroundColor Black
     } else {
-        Write-Host "┌─ $Message" -ForegroundColor Magenta -BackgroundColor Black
+        Write-Host "+-- $Message" -ForegroundColor Magenta -BackgroundColor Black
     }
-    Write-Host "├" + ("─" * 70) -ForegroundColor DarkMagenta
+    Write-Host ("|" + ("-" * 70)) -ForegroundColor DarkMagenta
 }
 
 function Write-SubStep($Message) {
-    Write-Host "│ → $Message" -ForegroundColor Gray
+    Write-Host "| -> $Message" -ForegroundColor Gray
 }
 
 function Write-Banner {
     Clear-Host
     Write-Host ""
-    Write-Host "╔══════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "║                                                                              ║" -ForegroundColor Cyan
-    Write-Host "║  ███╗   ███╗██╗   ██╗██╗  ████████╗██╗███╗   ███╗███████╗███████╗███████╗   ║" -ForegroundColor Cyan
-    Write-Host "║  ████╗ ████║██║   ██║██║  ╚══██╔══╝██║████╗ ████║██╔════╝██╔════╝██╔════╝   ║" -ForegroundColor Cyan
-    Write-Host "║  ██╔████╔██║██║   ██║██║     ██║   ██║██╔████╔██║█████╗  ███████╗███████╗   ║" -ForegroundColor Cyan
-    Write-Host "║  ██║╚██╔╝██║██║   ██║██║     ██║   ██║██║╚██╔╝██║██╔══╝  ╚════██║╚════██║   ║" -ForegroundColor Cyan
-    Write-Host "║  ██║ ╚═╝ ██║╚██████╔╝███████╗██║   ██║██║ ╚═╝ ██║███████╗███████║███████║   ║" -ForegroundColor Cyan
-    Write-Host "║  ╚═╝     ╚═╝ ╚═════╝ ╚══════╝╚═╝   ╚═╝╚═╝     ╚═╝╚══════╝╚══════╝╚══════╝   ║" -ForegroundColor Cyan
-    Write-Host "║                                                                              ║" -ForegroundColor Cyan
-    Write-Host "║                        📋 COPY PLUGIN SETUP WIZARD 📋                       ║" -ForegroundColor White
-    Write-Host "║                                                                              ║" -ForegroundColor Cyan
-    Write-Host "╠══════════════════════════════════════════════════════════════════════════════╣" -ForegroundColor DarkCyan
-    Write-Host "║                    MultiMessageCopy Setup Script v2.0                       ║" -ForegroundColor White
-    Write-Host "║                              by tsx-awtns                                    ║" -ForegroundColor Gray
-    Write-Host "║                                                                              ║" -ForegroundColor DarkCyan
-    Write-Host "║  🎯 Purpose: Automated installation of MultiMessageCopy plugin for Vencord  ║" -ForegroundColor Yellow
-    Write-Host "║  🔧 Features: Node.js, Git, pnpm, Vencord, Plugin installation             ║" -ForegroundColor Yellow
-    Write-Host "║  💡 Enhanced: Better UI, detailed progress, error handling                  ║" -ForegroundColor Yellow
-    Write-Host "╚══════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor DarkCyan
+    Write-Host "+============================================================================+" -ForegroundColor Cyan
+    Write-Host "|                                                                            |" -ForegroundColor Cyan
+    Write-Host "|  ███╗   ███╗██╗   ██╗██╗  ████████╗██╗███╗   ███╗███████╗███████╗███████╗ |" -ForegroundColor Cyan
+    Write-Host "|  ████╗ ████║██║   ██║██║  ╚══██╔══╝██║████╗ ████║██╔════╝██╔════╝██╔════╝ |" -ForegroundColor Cyan
+    Write-Host "|  ██╔████╔██║██║   ██║██║     ██║   ██║██╔████╔██║█████╗  ███████╗███████╗ |" -ForegroundColor Cyan
+    Write-Host "|  ██║╚██╔╝██║██║   ██║██║     ██║   ██║██║╚██╔╝██║██╔══╝  ╚════██║╚════██║ |" -ForegroundColor Cyan
+    Write-Host "|  ██║ ╚═╝ ██║╚██████╔╝███████╗██║   ██║██║ ╚═╝ ██║███████╗███████║███████║ |" -ForegroundColor Cyan
+    Write-Host "|  ╚═╝     ╚═╝ ╚═════╝ ╚══════╝╚═╝   ╚═╝╚═╝     ╚═╝╚══════╝╚══════╝╚══════╝ |" -ForegroundColor Cyan
+    Write-Host "|                                                                            |" -ForegroundColor Cyan
+    Write-Host "|                        COPY PLUGIN SETUP WIZARD                           |" -ForegroundColor White
+    Write-Host "|                                                                            |" -ForegroundColor Cyan
+    Write-Host "+============================================================================+" -ForegroundColor DarkCyan
+    Write-Host "|                    MultiMessageCopy Setup Script v2.1                     |" -ForegroundColor White
+    Write-Host "|                              by tsx-awtns                                  |" -ForegroundColor Gray
+    Write-Host "|                                                                            |" -ForegroundColor DarkCyan
+    Write-Host "|  Purpose: Automated installation of MultiMessageCopy plugin for Vencord  |" -ForegroundColor Yellow
+    Write-Host "|  Features: Node.js, Git, pnpm, Vencord, Plugin installation              |" -ForegroundColor Yellow
+    Write-Host "|  Enhanced: Better UI, detailed progress, error handling                   |" -ForegroundColor Yellow
+    Write-Host "+============================================================================+" -ForegroundColor DarkCyan
     Write-Host ""
 }
 
 function Show-Help {
     Write-Banner
-    Write-Host "📖 COMMAND LINE USAGE" -ForegroundColor Yellow -BackgroundColor DarkBlue
+    Write-Host "COMMAND LINE USAGE" -ForegroundColor Yellow -BackgroundColor DarkBlue
     Write-Host ""
     Write-Host "SYNTAX:" -ForegroundColor White
     Write-Host "  .\setup.ps1 [OPTIONS]" -ForegroundColor Cyan
@@ -74,7 +74,7 @@ function Show-Help {
     Write-Host "  .\setup.ps1 -VencordPath 'C:\MyVencord'        # Custom path" -ForegroundColor White
     Write-Host "  .\setup.ps1 -Verbose                           # Detailed output" -ForegroundColor White
     Write-Host ""
-    Write-Host "💡 TIP: Run as Administrator for best results!" -ForegroundColor Green
+    Write-Host "TIP: Run as Administrator for best results!" -ForegroundColor Green
     Write-Host ""
 }
 
@@ -122,14 +122,14 @@ function Update-SessionPath {
 function Get-UserChoice($Prompt, $DefaultChoice = "Y", $Description = "") {
     do {
         Write-Host ""
-        Write-Host "┌─ USER INPUT REQUIRED" -ForegroundColor Yellow -BackgroundColor DarkBlue
-        Write-Host "│"
-        Write-Host "│ 🤔 QUESTION: $Prompt" -ForegroundColor White
+        Write-Host "+-- USER INPUT REQUIRED" -ForegroundColor Yellow -BackgroundColor DarkBlue
+        Write-Host "|"
+        Write-Host "| QUESTION: $Prompt" -ForegroundColor White
         if ($Description) {
-            Write-Host "│ 💡 INFO: $Description" -ForegroundColor Gray
+            Write-Host "| INFO: $Description" -ForegroundColor Gray
         }
-        Write-Host "│"
-        Write-Host "│ 📋 OPTIONS: " -NoNewline -ForegroundColor Gray
+        Write-Host "|"
+        Write-Host "| OPTIONS: " -NoNewline -ForegroundColor Gray
         if ($DefaultChoice -eq "Y") {
             Write-Host "[Y]es" -NoNewline -ForegroundColor Green
             Write-Host " / " -NoNewline -ForegroundColor Gray
@@ -141,15 +141,15 @@ function Get-UserChoice($Prompt, $DefaultChoice = "Y", $Description = "") {
             Write-Host "[N]" -NoNewline -ForegroundColor Green
             Write-Host "o" -ForegroundColor Green
         }
-        Write-Host "│"
-        Write-Host "└─ Your choice (Enter for default): " -NoNewline -ForegroundColor Cyan
+        Write-Host "|"
+        Write-Host "+-- Your choice (Enter for default): " -NoNewline -ForegroundColor Cyan
         $choice = Read-Host
         if ([string]::IsNullOrWhiteSpace($choice)) { 
             $choice = $DefaultChoice 
         }
         $choice = $choice.ToUpper()
         if ($choice -eq "Y" -or $choice -eq "N") { 
-            Write-Host "   ✓ Selected: $choice" -ForegroundColor Green
+            Write-Host "    [OK] Selected: $choice" -ForegroundColor Green
             return $choice 
         }
         Write-Warning "Invalid choice '$choice'. Please enter Y or N."
@@ -158,28 +158,28 @@ function Get-UserChoice($Prompt, $DefaultChoice = "Y", $Description = "") {
 
 function Get-UserPath($Prompt, $DefaultPath, $Description = "") {
     Write-Host ""
-    Write-Host "┌─ PATH CONFIGURATION" -ForegroundColor Yellow -BackgroundColor DarkBlue
-    Write-Host "│"
-    Write-Host "│ 📁 $Prompt" -ForegroundColor White
+    Write-Host "+-- PATH CONFIGURATION" -ForegroundColor Yellow -BackgroundColor DarkBlue
+    Write-Host "|"
+    Write-Host "| $Prompt" -ForegroundColor White
     if ($Description) {
-        Write-Host "│ 💡 $Description" -ForegroundColor Gray
+        Write-Host "| $Description" -ForegroundColor Gray
     }
-    Write-Host "│"
-    Write-Host "│ 🎯 Default location:" -ForegroundColor Gray
-    Write-Host "│    $DefaultPath" -ForegroundColor Green
-    Write-Host "│"
-    Write-Host "│ 📝 Example custom path:" -ForegroundColor Gray
-    Write-Host "│    C:\MyProjects\Vencord" -ForegroundColor White
-    Write-Host "│    D:\Development\Discord\Vencord" -ForegroundColor White
-    Write-Host "│"
-    Write-Host "└─ Enter custom path or press Enter for default: " -NoNewline -ForegroundColor Cyan
+    Write-Host "|"
+    Write-Host "| Default location:" -ForegroundColor Gray
+    Write-Host "|    $DefaultPath" -ForegroundColor Green
+    Write-Host "|"
+    Write-Host "| Example custom path:" -ForegroundColor Gray
+    Write-Host "|    C:\MyProjects\Vencord" -ForegroundColor White
+    Write-Host "|    D:\Development\Discord\Vencord" -ForegroundColor White
+    Write-Host "|"
+    Write-Host "+-- Enter custom path or press Enter for default: " -NoNewline -ForegroundColor Cyan
     $userInput = Read-Host
     if ([string]::IsNullOrWhiteSpace($userInput)) {
-        Write-Host "   ✓ Using default: $DefaultPath" -ForegroundColor Green
+        Write-Host "    [OK] Using default: $DefaultPath" -ForegroundColor Green
         return $DefaultPath
     }
     $userInput = $userInput.Trim('"').Trim("'").Trim()
-    Write-Host "   ✓ Using custom: $userInput" -ForegroundColor Green
+    Write-Host "    [OK] Using custom: $userInput" -ForegroundColor Green
     return $userInput
 }
 
@@ -190,51 +190,52 @@ function Show-SystemInfo {
     $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem
     $computerInfo = Get-CimInstance -ClassName Win32_ComputerSystem
     
-    Write-Host "│"
-    Write-Host "│ 🖥️  SYSTEM DETAILS:" -ForegroundColor Cyan
-    Write-Host "│    OS: $($osInfo.Caption) ($($osInfo.Version))" -ForegroundColor White
-    Write-Host "│    Computer: $($computerInfo.Name)" -ForegroundColor White
-    Write-Host "│    User: $env:USERNAME" -ForegroundColor White
-    Write-Host "│    PowerShell: $($PSVersionTable.PSVersion)" -ForegroundColor White
-    Write-Host "│    Admin Rights: $(if (Test-Administrator) { '✓ Yes' } else { '✗ No' })" -ForegroundColor $(if (Test-Administrator) { 'Green' } else { 'Red' })
-    Write-Host "│"
+    Write-Host "|"
+    Write-Host "| SYSTEM DETAILS:" -ForegroundColor Cyan
+    Write-Host "|    OS: $($osInfo.Caption) ($($osInfo.Version))" -ForegroundColor White
+    Write-Host "|    Computer: $($computerInfo.Name)" -ForegroundColor White
+    Write-Host "|    User: $env:USERNAME" -ForegroundColor White
+    Write-Host "|    PowerShell: $($PSVersionTable.PSVersion)" -ForegroundColor White
+    Write-Host "|    Admin Rights: $(if (Test-Administrator) { '[OK] Yes' } else { '[X] No' })" -ForegroundColor $(if (Test-Administrator) { 'Green' } else { 'Red' })
+    Write-Host "|"
     
     Write-Debug "System scan completed"
 }
 
 function Show-PreInstallationSummary($NodeSkip, $GitSkip, $VencordPath) {
     Write-Host ""
-    Write-Host "╔══════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Yellow
-    Write-Host "║                           📋 INSTALLATION PLAN                              ║" -ForegroundColor Yellow
-    Write-Host "╠══════════════════════════════════════════════════════════════════════════════╣" -ForegroundColor DarkYellow
-    Write-Host "║                                                                              ║" -ForegroundColor Yellow
-    Write-Host "║  The following components will be installed/configured:                     ║" -ForegroundColor White
-    Write-Host "║                                                                              ║" -ForegroundColor Yellow
-    Write-Host "║  🔧 Node.js (JavaScript Runtime)        $(if (!$NodeSkip) { '✓ Install' } else { '⏭ Skip' })" -ForegroundColor $(if (!$NodeSkip) { 'Green' } else { 'Yellow' })
-    Write-Host "║  📦 Git (Version Control)               $(if (!$GitSkip) { '✓ Install' } else { '⏭ Skip' })" -ForegroundColor $(if (!$GitSkip) { 'Green' } else { 'Yellow' })
-    Write-Host "║  ⚡ pnpm (Package Manager)               ✓ Install" -ForegroundColor Green
-    Write-Host "║  🎮 Vencord (Discord Client Mod)        ✓ Clone & Setup" -ForegroundColor Green
-    Write-Host "║  🔌 MultiMessageCopy Plugin             ✓ Install & Configure" -ForegroundColor Green
-    Write-Host "║                                                                              ║" -ForegroundColor Yellow
-    Write-Host "║  📁 Installation Directory:                                                 ║" -ForegroundColor White
-    Write-Host "║     $VencordPath" -ForegroundColor Cyan
-    Write-Host "║                                                                              ║" -ForegroundColor Yellow
-    Write-Host "╚══════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor DarkYellow
+    Write-Host "+============================================================================+" -ForegroundColor Yellow
+    Write-Host "|                           INSTALLATION PLAN                               |" -ForegroundColor Yellow
+    Write-Host "+============================================================================+" -ForegroundColor DarkYellow
+    Write-Host "|                                                                            |" -ForegroundColor Yellow
+    Write-Host "|  The following components will be installed/configured:                   |" -ForegroundColor White
+    Write-Host "|                                                                            |" -ForegroundColor Yellow
+    Write-Host "|  Node.js (JavaScript Runtime)        $(if (!$NodeSkip) { '[OK] Install' } else { '[SKIP] Skip' })" -ForegroundColor $(if (!$NodeSkip) { 'Green' } else { 'Yellow' })
+    Write-Host "|  Git (Version Control)               $(if (!$GitSkip) { '[OK] Install' } else { '[SKIP] Skip' })" -ForegroundColor $(if (!$GitSkip) { 'Green' } else { 'Yellow' })
+    Write-Host "|  pnpm (Package Manager)               [OK] Install" -ForegroundColor Green
+    Write-Host "|  Vencord (Discord Client Mod)        [OK] Clone & Setup" -ForegroundColor Green
+    Write-Host "|  MultiMessageCopy Plugin             [OK] Install & Configure" -ForegroundColor Green
+    Write-Host "|                                                                            |" -ForegroundColor Yellow
+    Write-Host "|  Installation Directory:                                                  |" -ForegroundColor White
+    Write-Host "|     $VencordPath" -ForegroundColor Cyan
+    Write-Host "|                                                                            |" -ForegroundColor Yellow
+    Write-Host "+============================================================================+" -ForegroundColor DarkYellow
     Write-Host ""
 }
 
 function Show-InstallationProgress($Current, $Total, $ComponentName, $Status) {
     $percentage = [math]::Round(($Current / $Total) * 100)
-    $progressBar = "█" * [math]::Round($percentage / 5) + "░" * (20 - [math]::Round($percentage / 5))
+    $progressChars = [math]::Round($percentage / 5)
+    $progressBar = "#" * $progressChars + "-" * (20 - $progressChars)
     
     Write-Host ""
-    Write-Host "┌─ INSTALLATION PROGRESS" -ForegroundColor Magenta -BackgroundColor Black
-    Write-Host "│"
-    Write-Host "│ 📊 Overall: [$progressBar] $percentage%" -ForegroundColor Cyan
-    Write-Host "│ 🔄 Current: $ComponentName" -ForegroundColor White
-    Write-Host "│ 📋 Status: $Status" -ForegroundColor Yellow
-    Write-Host "│ 📈 Step: $Current of $Total" -ForegroundColor Gray
-    Write-Host "│"
+    Write-Host "+-- INSTALLATION PROGRESS" -ForegroundColor Magenta -BackgroundColor Black
+    Write-Host "|"
+    Write-Host "| Overall: [$progressBar] $percentage%" -ForegroundColor Cyan
+    Write-Host "| Current: $ComponentName" -ForegroundColor White
+    Write-Host "| Status: $Status" -ForegroundColor Yellow
+    Write-Host "| Step: $Current of $Total" -ForegroundColor Gray
+    Write-Host "|"
 }
 
 function Show-ComponentStatus($ComponentName, $Version = "", $Status = "Unknown", $Path = "") {
@@ -248,82 +249,82 @@ function Show-ComponentStatus($ComponentName, $Version = "", $Status = "Unknown"
     }
     
     $statusIcon = switch ($Status) {
-        "Installed" { "✓" }
-        "Available" { "✓" }
-        "Missing" { "✗" }
-        "Failed" { "✗" }
-        "Skipped" { "⏭" }
-        default { "?" }
+        "Installed" { "[OK]" }
+        "Available" { "[OK]" }
+        "Missing" { "[X]" }
+        "Failed" { "[X]" }
+        "Skipped" { "[SKIP]" }
+        default { "[?]" }
     }
     
-    Write-Host "│ $statusIcon $ComponentName" -NoNewline -ForegroundColor $statusColor
+    Write-Host "| $statusIcon $ComponentName" -NoNewline -ForegroundColor $statusColor
     if ($Version) {
         Write-Host " ($Version)" -NoNewline -ForegroundColor Gray
     }
     Write-Host " - $Status" -ForegroundColor $statusColor
     if ($Path) {
-        Write-Host "│   📁 $Path" -ForegroundColor DarkGray
+        Write-Host "|   Path: $Path" -ForegroundColor DarkGray
     }
 }
 
 function Show-FinalSummary($Success, $VencordPath, $ComponentsInstalled) {
     Write-Host ""
     if ($Success) {
-        Write-Host "╔══════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-        Write-Host "║                            🎉 INSTALLATION COMPLETE! 🎉                     ║" -ForegroundColor Green
-        Write-Host "╠══════════════════════════════════════════════════════════════════════════════╣" -ForegroundColor DarkGreen
-        Write-Host "║                                                                              ║" -ForegroundColor Green
-        Write-Host "║  ✅ MultiMessageCopy plugin has been successfully installed!                ║" -ForegroundColor White
-        Write-Host "║                                                                              ║" -ForegroundColor Green
-        Write-Host "║  📁 Installation Location:                                                  ║" -ForegroundColor White
-        Write-Host "║     $VencordPath" -ForegroundColor Cyan
-        Write-Host "║                                                                              ║" -ForegroundColor Green
-        Write-Host "║  🔧 Components Installed:                                                   ║" -ForegroundColor White
+        Write-Host "+============================================================================+" -ForegroundColor Green
+        Write-Host "|                            INSTALLATION COMPLETE!                         |" -ForegroundColor Green
+        Write-Host "+============================================================================+" -ForegroundColor DarkGreen
+        Write-Host "|                                                                            |" -ForegroundColor Green
+        Write-Host "|  MultiMessageCopy plugin has been successfully installed!                 |" -ForegroundColor White
+        Write-Host "|                                                                            |" -ForegroundColor Green
+        Write-Host "|  Installation Location:                                                   |" -ForegroundColor White
+        Write-Host "|     $VencordPath" -ForegroundColor Cyan
+        Write-Host "|                                                                            |" -ForegroundColor Green
+        Write-Host "|  Components Installed:                                                    |" -ForegroundColor White
         foreach ($component in $ComponentsInstalled) {
-            Write-Host "║     ✓ $component" -ForegroundColor Green
+            Write-Host "|     [OK] $component" -ForegroundColor Green
         }
-        Write-Host "║                                                                              ║" -ForegroundColor Green
-        Write-Host "╚══════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor DarkGreen
+        Write-Host "|                                                                            |" -ForegroundColor Green
+        Write-Host "+============================================================================+" -ForegroundColor DarkGreen
     } else {
-        Write-Host "╔══════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Red
-        Write-Host "║                            ❌ INSTALLATION FAILED ❌                        ║" -ForegroundColor Red
-        Write-Host "╠══════════════════════════════════════════════════════════════════════════════╣" -ForegroundColor DarkRed
-        Write-Host "║                                                                              ║" -ForegroundColor Red
-        Write-Host "║  The installation encountered errors and could not complete successfully.   ║" -ForegroundColor White
-        Write-Host "║  Please check the error messages above and try again.                       ║" -ForegroundColor White
-        Write-Host "║                                                                              ║" -ForegroundColor Red
-        Write-Host "╚══════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor DarkRed
+        Write-Host "+============================================================================+" -ForegroundColor Red
+        Write-Host "|                            INSTALLATION FAILED                            |" -ForegroundColor Red
+        Write-Host "+============================================================================+" -ForegroundColor DarkRed
+        Write-Host "|                                                                            |" -ForegroundColor Red
+        Write-Host "|  The installation encountered errors and could not complete successfully. |" -ForegroundColor White
+        Write-Host "|  Please check the error messages above and try again.                     |" -ForegroundColor White
+        Write-Host "|                                                                            |" -ForegroundColor Red
+        Write-Host "+============================================================================+" -ForegroundColor DarkRed
     }
     
     Write-Host ""
-    Write-Host "📋 NEXT STEPS:" -ForegroundColor Yellow -BackgroundColor DarkBlue
+    Write-Host "NEXT STEPS:" -ForegroundColor Yellow -BackgroundColor DarkBlue
     Write-Host ""
     if ($Success) {
-        Write-Host "   1️⃣  Restart Discord completely (close all Discord processes)" -ForegroundColor White
-        Write-Host "   2️⃣  Open Discord Settings (⚙️ gear icon)" -ForegroundColor White
-        Write-Host "   3️⃣  Navigate to: Vencord → Plugins" -ForegroundColor White
-        Write-Host "   4️⃣  Find 'MultiMessageCopy' in the plugin list" -ForegroundColor White
-        Write-Host "   5️⃣  Toggle the plugin ON (enable it)" -ForegroundColor White
-        Write-Host "   6️⃣  Start using the multi-message copy features!" -ForegroundColor White
+        Write-Host "   1. Restart Discord completely (close all Discord processes)" -ForegroundColor White
+        Write-Host "   2. Open Discord Settings (gear icon)" -ForegroundColor White
+        Write-Host "   3. Navigate to: Vencord -> Plugins" -ForegroundColor White
+        Write-Host "   4. Find 'MultiMessageCopy' in the plugin list" -ForegroundColor White
+        Write-Host "   5. Toggle the plugin ON (enable it)" -ForegroundColor White
+        Write-Host "   6. Start using the multi-message copy features!" -ForegroundColor White
         Write-Host ""
-        Write-Host "🎯 PLUGIN FEATURES:" -ForegroundColor Cyan
+        Write-Host "PLUGIN FEATURES:" -ForegroundColor Cyan
         Write-Host "   • Copy multiple messages at once" -ForegroundColor Gray
         Write-Host "   • Batch message operations" -ForegroundColor Gray
         Write-Host "   • Enhanced clipboard functionality" -ForegroundColor Gray
     } else {
-        Write-Host "   1️⃣  Check the error messages above" -ForegroundColor White
-        Write-Host "   2️⃣  Ensure you have internet connection" -ForegroundColor White
-        Write-Host "   3️⃣  Try running as Administrator" -ForegroundColor White
-        Write-Host "   4️⃣  Restart PowerShell and try again" -ForegroundColor White
+        Write-Host "   1. Check the error messages above" -ForegroundColor White
+        Write-Host "   2. Ensure you have internet connection" -ForegroundColor White
+        Write-Host "   3. Try running as Administrator" -ForegroundColor White
+        Write-Host "   4. Restart PowerShell and try again" -ForegroundColor White
     }
     
     Write-Host ""
-    Write-Host "🔗 USEFUL LINKS:" -ForegroundColor Cyan
-    Write-Host "   📦 Plugin Repository: https://github.com/tsx-awtns/MultiMessageCopy" -ForegroundColor Blue
-    Write-Host "   🐛 Report Issues: https://github.com/tsx-awtns/MultiMessageCopy/issues" -ForegroundColor Blue
-    Write-Host "   📖 Vencord Documentation: https://docs.vencord.dev/" -ForegroundColor Blue
+    Write-Host "USEFUL LINKS:" -ForegroundColor Cyan
+    Write-Host "   Plugin Repository: https://github.com/tsx-awtns/MultiMessageCopy" -ForegroundColor Blue
+    Write-Host "   Report Issues: https://github.com/tsx-awtns/MultiMessageCopy/issues" -ForegroundColor Blue
+    Write-Host "   Vencord Documentation: https://docs.vencord.dev/" -ForegroundColor Blue
     Write-Host ""
-    Write-Host "💝 Thank you for using MultiMessageCopy! Enjoy your enhanced Discord experience!" -ForegroundColor Green
+    Write-Host "Thank you for using MultiMessageCopy! Enjoy your enhanced Discord experience!" -ForegroundColor Green
     Write-Host ""
 }
 
