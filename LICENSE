@@ -1,0 +1,113 @@
+MultiMessageCopy — Custom Source License
+=========================================
+
+Copyright (c) 2026-present  tsx-awtns
+All rights reserved.
+
+-------------------------------------------------------------------------------
+DISCLAIMER
+-------------------------------------------------------------------------------
+
+This software is an UNOFFICIAL Vencord plugin and is in no way affiliated with,
+officially registered with, endorsed by, or maintained by the Vencord project,
+its contributors, or any of its maintainers.
+
+This software is an UNOFFICIAL Discord plugin/modification and is in no way
+affiliated with, authorized by, endorsed by, or in any way officially connected
+to Discord Inc. "Discord" is a registered trademark of Discord Inc.
+
+Use of this software is entirely at your own risk.
+
+-------------------------------------------------------------------------------
+PERMITTED USES
+-------------------------------------------------------------------------------
+
+Subject to the conditions below, you are hereby granted permission to:
+
+  1. VIEW — read, study, and inspect the source code for personal or
+     educational purposes.
+
+  2. INSTALL & RUN — compile and run the software for personal, non-commercial
+     use within your own Discord/Vencord setup.
+
+  3. MODIFY & IMPROVE — create derivative works, fix bugs, add features, or
+     otherwise adapt the source code for personal use or to submit contributions
+     back to this project via pull request.
+
+  4. DISTRIBUTE MODIFICATIONS — share your modified version of the software,
+     provided ALL conditions in the "CONDITIONS" section below are met.
+
+-------------------------------------------------------------------------------
+CONDITIONS
+-------------------------------------------------------------------------------
+
+  A. ATTRIBUTION REQUIRED
+     Any copy, fork, or derivative work — whether modified or unmodified —
+     must retain this license file in full, the original copyright notice
+     above, and a clear, prominent reference to the original repository:
+
+         https://github.com/tsx-awtns/MultiMessageCopy
+
+  B. NO OWNERSHIP CLAIM
+     You may NOT claim authorship, ownership, or original creation of this
+     software or any substantial portion of it, regardless of how extensively
+     you have modified it.  Modifications may be credited separately (e.g.
+     "Based on MultiMessageCopy by tsx-awtns, modified by <your name>"),
+     but the original author must always be acknowledged as the originator
+     of the work.
+
+  C. NO FALSE AFFILIATION
+     You may NOT represent your fork or derivative work as:
+       - the official or original MultiMessageCopy plugin,
+       - an officially supported Vencord plugin,
+       - an officially supported or endorsed Discord product or feature.
+     Any redistributed version must clearly state that it is a third-party
+     modification and is NOT officially affiliated with Vencord or Discord Inc.
+
+  D. NO COMMERCIAL USE WITHOUT PERMISSION
+     You may NOT sell, sublicense, or otherwise commercially exploit this
+     software or any derivative work without prior written permission from
+     the original author (tsx-awtns).
+
+  E. LICENSE PRESERVED
+     This license must be included, unmodified and in its entirety, with
+     every copy or substantial portion of the software, including forks
+     and derivative works.
+
+-------------------------------------------------------------------------------
+PROHIBITED USES
+-------------------------------------------------------------------------------
+
+The following are explicitly PROHIBITED:
+
+  - Claiming this software, in whole or in part, as your own original work.
+  - Removing, altering, or obscuring the copyright notice or this license.
+  - Publishing a fork or derivative work without the attribution required
+    in condition A and B above.
+  - Representing the software as an official Vencord plugin or an official
+    Discord feature, product, or service.
+  - Using the name "MultiMessageCopy" as the primary name of a derivative
+    work in a way that implies it is the original project.
+
+-------------------------------------------------------------------------------
+NO WARRANTY
+-------------------------------------------------------------------------------
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+IN NO EVENT SHALL THE AUTHOR OR COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM,
+DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR
+OTHERWISE, ARISING OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+-------------------------------------------------------------------------------
+SUMMARY (non-binding, for readability)
+-------------------------------------------------------------------------------
+
+  You CAN:  view it  |  install it  |  modify and improve it  |  share forks
+  You CANNOT:  claim it as yours  |  sell it  |  remove attribution
+               call it an official Vencord or Discord product
+
+-------------------------------------------------------------------------------

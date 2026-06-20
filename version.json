@@ -1,0 +1,10 @@
+{
+  "name": "MultiMessageCopy",
+  "version": "5.5.1",
+  "repo": "https://github.com/tsx-awtns/MultiMessageCopy",
+  "latestRelease": "https://github.com/tsx-awtns/MultiMessageCopy/releases/latest",
+  "setupUrl": "https://raw.githubusercontent.com/tsx-awtns/MultiMessageCopy/main/setup.ps1",
+  "updateUrl": "https://raw.githubusercontent.com/tsx-awtns/MultiMessageCopy/main/update.ps1",
+  "uninstallUrl": "https://raw.githubusercontent.com/tsx-awtns/MultiMessageCopy/main/uninstall.ps1",
+  "changelog": "v5.5.0 adds native Discord/Vencord update and export progress modals, fixes light/dark/custom theme readability, adds in-plugin update detection with a safe visible PowerShell updater, improves large chat exports with progress phases and better performance, adds searchable/filterable HTML exports, adds multiple copy formats, improves installed-version tracking, backups, updater safety, and cleans README/debug comments."
+}
